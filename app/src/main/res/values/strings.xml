@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">nutripekes-android</string>
+    <string name="title_activity_menu_bar.kt">MenuBar.kt</string>
+    <string name="title_activity_menu_bar">MenuBar</string>
 </resources>
