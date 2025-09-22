@@ -12,6 +12,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Nutripekesandroid">
         <activity
+            android:name=".ExercisePopUp"
+            android:exported="false"
+            android:label="@string/title_activity_exercise_pop_up"
+            android:theme="@style/Theme.Nutripekesandroid" />
+        <activity
             android:name=".MenuBar"
             android:exported="false"
             android:label="@string/title_activity_menu_bar"
