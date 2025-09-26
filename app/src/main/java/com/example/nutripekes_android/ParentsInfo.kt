@@ -43,6 +43,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import org.intellij.lang.annotations.JdkConstants
@@ -53,7 +55,7 @@ class ParentsInfo : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NutripekesandroidTheme {
-                ParentsInformation()
+                ParentsInformation(navController = rememberNavController())
             }
         }
     }
@@ -200,7 +202,6 @@ fun Recetario(modifier: Modifier = Modifier) {
                     modifier = Modifier
                         .weight(1f)
                         .padding(end = 8.dp)
-                        .verticalScroll(rememberScrollState())
                 ) {
                     Text(
                         text = "Instrucciones:",
@@ -227,8 +228,7 @@ fun Recetario(modifier: Modifier = Modifier) {
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 8.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .padding(start = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
@@ -272,9 +272,11 @@ fun Recetario(modifier: Modifier = Modifier) {
 
 //Contenido de la pagina
 @Composable
-fun ParentsInformation(modifier: Modifier = Modifier) {
+fun ParentsInformation(modifier: Modifier = Modifier, navController: NavController) {
+    val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
+            .verticalScroll(scrollState)
             .fillMaxSize()
             .background(PinkPeke)
             .padding(8.dp, 0.dp),
@@ -290,7 +292,9 @@ fun ParentsInformation(modifier: Modifier = Modifier) {
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { /* TODO: acción de regresar */ }
+                modifier = Modifier.clickable {
+                    navController.navigate("StartDayScreen")
+                }
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.arrow),
@@ -320,18 +324,10 @@ fun ParentsInformation(modifier: Modifier = Modifier) {
             modifier = modifier.padding(vertical = 10.dp)
         )
 
-//        RecomendacionesTable()
+        RecomendacionesTable()
 
         Spacer(modifier = Modifier.height(15.dp))
 
         Recetario()
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ParentsInfoPreview() {
-    NutripekesandroidTheme {
-        ParentsInformation()
     }
 }

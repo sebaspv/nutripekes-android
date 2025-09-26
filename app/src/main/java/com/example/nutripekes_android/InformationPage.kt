@@ -45,6 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import org.intellij.lang.annotations.JdkConstants
@@ -55,7 +57,7 @@ class InformationPage : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NutripekesandroidTheme {
-                InfoPage()
+                InfoPage(navController = rememberNavController())
             }
         }
     }
@@ -116,11 +118,14 @@ fun InformationColumns(
 }
 
 @Composable
-fun InfoPage(modifier: Modifier = Modifier) {
+fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
+    val scrollState = rememberScrollState()
+
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(PinkPeke)
+            .verticalScroll(scrollState)
             .padding(8.dp, 0.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -134,7 +139,9 @@ fun InfoPage(modifier: Modifier = Modifier) {
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { /* TODO: acción de regresar */ }
+                modifier = Modifier.clickable {
+                    navController.navigate("StartDayScreen")
+                }
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.arrow),
@@ -161,6 +168,7 @@ fun InfoPage(modifier: Modifier = Modifier) {
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
+
         val info1 = """
         [SUBTITULO]Frutas y Verduras
         Aportan abundantes vitaminas, minerales, fibra y antioxidantes y ayudan al buen funcionamiento y desarrollo del organismo, fortalecen el sistema inmunológico y mejoran la digestión.
@@ -173,34 +181,25 @@ fun InfoPage(modifier: Modifier = Modifier) {
         InformationColumns(Color(0xFFDF1E34), "Componentes de una comida balanceada", info1)
 
         val info2 = """
-            [SUBTITULO]Señales de hambre
-            El niño puede buscar acitvamente la comida, abrir la boca, o succionar con más entusiasmo del pecho o biberón.
-            [SUBTITULO]Señales de saciedad
-            El niño puede apartarse, cerrar la boca, no aceptar más comida, o escupir.
-            [SUBTITULO]Importancia
-            Respetar estas señales permite al niño desarrollar un vínculo saludable con la comida, aprendiendo a reconocer sus propias necesidades.  
+        [SUBTITULO]Señales de hambre
+        El niño puede buscar activamente la comida, abrir la boca, o succionar con más entusiasmo del pecho o biberón.
+        [SUBTITULO]Señales de saciedad
+        El niño puede apartarse, cerrar la boca, no aceptar más comida, o escupir.
+        [SUBTITULO]Importancia
+        Respetar estas señales permite al niño desarrollar un vínculo saludable con la comida, aprendiendo a reconocer sus propias necesidades.  
         """.trimIndent()
 
         InformationColumns(Color(0xFF255A2E), "Señales de hambre y saciedad", info2)
 
         val info3 = """
-            [SUBTITULO]El rol de los padres
-            Los padres son el principal modelo a seguir; por lo tanto, deben mostrar y practicar hábitos alimentarios saludables.
-            [SUBTITULO]Evitar la obligación
-            Forzar a un niño a comer puede generar una situación emocional negativa y dañar la relación con la comida.
-            [SUBTITULO]Establecer rutinas
-            Crear un horario regular de comidas y refrigerios ayuda a establecer hábitos.
+        [SUBTITULO]El rol de los padres
+        Los padres son el principal modelo a seguir; por lo tanto, deben mostrar y practicar hábitos alimentarios saludables.
+        [SUBTITULO]Evitar la obligación
+        Forzar a un niño a comer puede generar una situación emocional negativa y dañar la relación con la comida.
+        [SUBTITULO]Establecer rutinas
+        Crear un horario regular de comidas y refrigerios ayuda a establecer hábitos.
         """.trimIndent()
 
         InformationColumns(Color(0xFFF1981F), "Manejo de la selectividad alimentaria", info3)
-    }
-}
-
-
-@Preview(showBackground = true)
-@Composable
-fun InformationPagePreview() {
-    NutripekesandroidTheme {
-        InfoPage()
     }
 }

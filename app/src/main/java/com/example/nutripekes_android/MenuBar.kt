@@ -1,4 +1,5 @@
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -14,13 +15,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.nutripekes_android.R
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import com.example.nutripekes_android.ui.theme.GreenPeke
 
 
 @Composable
-fun SideBar() {
+fun SideBar(navController: NavController) {
     val juaFontFamily = FontFamily(Font(R.font.jua_regular))
 
     Row(modifier = Modifier.fillMaxSize()) {
@@ -31,6 +33,7 @@ fun SideBar() {
                 .background(GreenPeke)
                 .padding(start = 20.dp, end = 20.dp, top = 60.dp, bottom = 20.dp)
         ) {
+            // Sección Padres
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -50,11 +53,20 @@ fun SideBar() {
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
-            SideMenuItem(text = "Tabla de recomendaciones", fontFamily = juaFontFamily)
-            SideMenuItem(text = "Recetario", fontFamily = juaFontFamily)
+            SideMenuItem(
+                text = "Tabla de recomendaciones",
+                fontFamily = juaFontFamily,
+                onClick = { navController.navigate("ParentsInfoScreen") }
+            )
+            SideMenuItem(
+                text = "Recetario",
+                fontFamily = juaFontFamily,
+                onClick = { navController.navigate("ParentsInfoScreen") }
+            )
 
             Spacer(modifier = Modifier.height(40.dp))
 
+            // Sección Información
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -74,9 +86,21 @@ fun SideBar() {
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
-            SideMenuItem(text = "Componentes de una comida balanceada", fontFamily = juaFontFamily)
-            SideMenuItem(text = "Señales de hambre y saciedad", fontFamily = juaFontFamily)
-            SideMenuItem(text = "Manejo de la selectividad alimentaria", fontFamily = juaFontFamily)
+            SideMenuItem(
+                text = "Componentes de una comida balanceada",
+                fontFamily = juaFontFamily,
+                onClick = { navController.navigate("InformationPageScreen") }
+            )
+            SideMenuItem(
+                text = "Señales de hambre y saciedad",
+                fontFamily = juaFontFamily,
+                onClick = { navController.navigate("InformationPageScreen") }
+            )
+            SideMenuItem(
+                text = "Manejo de la selectividad alimentaria",
+                fontFamily = juaFontFamily,
+                onClick = { navController.navigate("InformationPageScreen") }
+            )
         }
 
         Box(
@@ -90,18 +114,14 @@ fun SideBar() {
 }
 
 @Composable
-fun SideMenuItem(text: String, fontFamily: FontFamily) {
+fun SideMenuItem(text: String, fontFamily: FontFamily, onClick: () -> Unit) {
     Text(
         text = text,
         fontSize = 19.sp,
         color = Color.White,
         fontFamily = fontFamily,
-        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+        modifier = Modifier
+            .padding(start = 16.dp, bottom = 8.dp)
+            .clickable { onClick() }
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SideBarPreview() {
-    SideBar()
 }

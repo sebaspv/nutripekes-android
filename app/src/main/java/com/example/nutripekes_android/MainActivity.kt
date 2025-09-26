@@ -1,6 +1,8 @@
 package com.example.nutripekes_android
 
+import SideBar
 import android.os.Bundle
+import android.view.WindowInsets
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import com.example.nutripekes_android.ui.theme.YellowPeke
 
@@ -29,13 +37,36 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            NutriPekesScreen()
+            Navigation()
+        }
+    }
+}
+
+
+@Composable
+fun Navigation() {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "MainActivity") {
+        composable("MainActivity") {
+            NutriPekesScreen(navController = navController)
+        }
+        composable("StartDayScreen") {
+            StartdayScreen(navController = navController)
+        }
+        composable("MenuBarScreen"){
+            SideBar(navController = navController)
+        }
+        composable("ParentsInfoScreen") {
+            ParentsInformation(navController = navController)
+        }
+        composable("InformationPageScreen"){
+            InfoPage(navController = navController)
         }
     }
 }
 
 @Composable
-fun NutriPekesScreen() {
+fun NutriPekesScreen(navController: NavController) {
     val context = LocalContext.current
 
     Column(
@@ -60,7 +91,8 @@ fun NutriPekesScreen() {
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .background(YellowPeke) // yellow button
-                .padding(horizontal = 80.dp, vertical = 20.dp),
+                .padding(horizontal = 80.dp, vertical = 20.dp)
+                .clickable { navController.navigate("StartDayScreen")},
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -80,3 +112,11 @@ fun NutriPekesScreen() {
         }
     }
 }
+//
+//@Preview(showBackground = true)
+//@Composable
+//fun NutriPekesScreenPreview() {
+//    NutripekesandroidTheme {
+//        NutriPekesScreen(navController = rememberNavController())
+//    }
+//}
