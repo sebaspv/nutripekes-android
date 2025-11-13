@@ -5,15 +5,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.VerticalAlignmentLine
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,11 +38,36 @@ class Startday : ComponentActivity() {
 }
 
 @Composable
+fun GuideButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(2.dp, Color.Gray, CircleShape)
+            .clickable { onClick() }
+    ) {
+        Text(
+            text = "?",
+            color = Color.Black,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
 fun StartdayScreen(navController : NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFE55B57))
+            .padding(0.dp, 10.dp)
     ) {
         Image(
             painter=painterResource(id=R.drawable.logo),
@@ -46,15 +77,29 @@ fun StartdayScreen(navController : NavController) {
                 .padding(18.dp)
         )
 
-        Image(
-            painter = painterResource(id = R.drawable.menu),
-            contentDescription = "Menu",
+        Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(22.dp)
-                .size(20.dp)
-                .clickable { navController.navigate("MenuBarScreen")},
-        )
+                .padding(22.dp, 22.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(space = 16.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.menu),
+                contentDescription = "Menu",
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { navController.navigate("MenuBarScreen")},
+            )
+
+            GuideButton(
+                onClick = {
+                    navController.navigate("GuideScreen")
+                }
+            )
+        }
+
+
 
         Image(
             painter = painterResource(id=R.drawable.empty_apple),
@@ -62,7 +107,7 @@ fun StartdayScreen(navController : NavController) {
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(400.dp)
-                .padding(bottom = 80.dp)
+                .padding(bottom = 100.dp)
         )
 
         Column(
@@ -110,5 +155,13 @@ fun FoodCounter(imageRes: Int, label: String){
             color = Color.White,
             fontSize = 12.sp
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NutriPekesScreenPreview2() {
+    NutripekesandroidTheme {
+        StartdayScreen(navController = rememberNavController())
     }
 }
