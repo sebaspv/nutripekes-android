@@ -43,7 +43,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
-
+import android.media.MediaPlayer
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -151,10 +151,15 @@ fun StartdayScreen(
         ttsInstance
     }
 
+    val appleChangedSound = remember(context){
+        MediaPlayer.create(context, R.raw.manzanasound)
+    }
+
     DisposableEffect(tts) {
         onDispose {
             tts.stop()
             tts.shutdown()
+            appleChangedSound?.release()
         }
     }
 
@@ -184,7 +189,6 @@ fun StartdayScreen(
         )
     }
 
-
     val age = PortionLogic.calculateAge(birthYear)
     val portions = PortionLogic.getPortionsForAge(age)
 
@@ -208,6 +212,31 @@ fun StartdayScreen(
     val cerealesColor = Color(0xFFFFC107)
     val aguaColor = Color(0xFF1BA6CC)
 
+    val totalCurrent = verdurasfrutasCount+origenanimalCount+leguminosasCount+cerealesCount+aguaCount
+    val totalMax = verdurasfrutasMax+origenanimalMax+leguminosasMax+cerealesMax+aguaMax
+    val appleImageRes = when{
+        totalCurrent == 0 -> R.drawable.manzana1
+        totalMax > 0 && totalCurrent >= totalMax -> R.drawable.manzana5
+        totalMax > 0 -> {
+            val progressPercent = totalCurrent.toFloat()/totalMax.toFloat()
+            when{
+                progressPercent <= 0.33f -> R.drawable.manzana2
+                progressPercent <= 0.66f -> R.drawable.manzana3
+                else -> R.drawable.manzana4
+            }
+        }
+
+        else -> R.drawable.manzana1
+    }
+
+    val isFirstLoad = remember { mutableStateOf(true) }
+    LaunchedEffect(appleImageRes) {
+        if (isFirstLoad.value){
+            isFirstLoad.value=false
+        }else{
+            appleChangedSound?.start()
+        }
+    }
 
     val showPopup by viewModel.showPopup.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -260,7 +289,7 @@ fun StartdayScreen(
                 }
             }){
                 Image(
-                    painter=painterResource(id=R.drawable.bocina),
+                    painter=painterResource(id=R.drawable.tts),
                     contentDescription = "Escuchar instrucciones",
                     modifier = Modifier.size(30.dp)
                 )
@@ -299,7 +328,7 @@ fun StartdayScreen(
         }
 
         Image(
-            painter = painterResource(id=R.drawable.empty_apple),
+            painter = painterResource(id=appleImageRes),
             contentDescription = "Manzana",
             modifier = Modifier
                 .align(Alignment.Center)
