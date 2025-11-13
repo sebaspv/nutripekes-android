@@ -43,7 +43,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
-
+import android.media.MediaPlayer
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -151,10 +151,15 @@ fun StartdayScreen(
         ttsInstance
     }
 
+    val appleChangedSound = remember(context){
+        MediaPlayer.create(context, R.raw.manzanasound)
+    }
+
     DisposableEffect(tts) {
         onDispose {
             tts.stop()
             tts.shutdown()
+            appleChangedSound?.release()
         }
     }
 
@@ -183,7 +188,6 @@ fun StartdayScreen(
             }
         )
     }
-
 
     val age = PortionLogic.calculateAge(birthYear)
     val portions = PortionLogic.getPortionsForAge(age)
@@ -223,6 +227,15 @@ fun StartdayScreen(
         }
 
         else -> R.drawable.manzana1
+    }
+
+    val isFirstLoad = remember { mutableStateOf(true) }
+    LaunchedEffect(appleImageRes) {
+        if (isFirstLoad.value){
+            isFirstLoad.value=false
+        }else{
+            appleChangedSound?.start()
+        }
     }
 
     val showPopup by viewModel.showPopup.collectAsState()
