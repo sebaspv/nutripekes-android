@@ -208,6 +208,22 @@ fun StartdayScreen(
     val cerealesColor = Color(0xFFFFC107)
     val aguaColor = Color(0xFF1BA6CC)
 
+    val totalCurrent = verdurasfrutasCount+origenanimalCount+leguminosasCount+cerealesCount+aguaCount
+    val totalMax = verdurasfrutasMax+origenanimalMax+leguminosasMax+cerealesMax+aguaMax
+    val appleImageRes = when{
+        totalCurrent == 0 -> R.drawable.manzana1
+        totalMax > 0 && totalCurrent >= totalMax -> R.drawable.manzana5
+        totalMax > 0 -> {
+            val progressPercent = totalCurrent.toFloat()/totalMax.toFloat()
+            when{
+                progressPercent <= 0.33f -> R.drawable.manzana2
+                progressPercent <= 0.66f -> R.drawable.manzana3
+                else -> R.drawable.manzana4
+            }
+        }
+
+        else -> R.drawable.manzana1
+    }
 
     val showPopup by viewModel.showPopup.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -260,7 +276,7 @@ fun StartdayScreen(
                 }
             }){
                 Image(
-                    painter=painterResource(id=R.drawable.bocina),
+                    painter=painterResource(id=R.drawable.tts),
                     contentDescription = "Escuchar instrucciones",
                     modifier = Modifier.size(30.dp)
                 )
@@ -299,7 +315,7 @@ fun StartdayScreen(
         }
 
         Image(
-            painter = painterResource(id=R.drawable.empty_apple),
+            painter = painterResource(id=appleImageRes),
             contentDescription = "Manzana",
             modifier = Modifier
                 .align(Alignment.Center)
