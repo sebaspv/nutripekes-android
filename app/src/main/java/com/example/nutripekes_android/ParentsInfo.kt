@@ -1,5 +1,6 @@
 package com.example.nutripekes_android
 
+import android.R.id.message
 import android.os.Bundle
 import android.widget.TableLayout
 import android.widget.TableRow
@@ -29,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -50,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,7 +63,9 @@ import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import org.intellij.lang.annotations.JdkConstants
 import coil.compose.AsyncImage
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 
 class ParentsInfo : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -191,20 +197,31 @@ data class RecipeCardData(
 sealed interface RecipeUiState {
     object Idle : RecipeUiState
     object Loading : RecipeUiState
-    data class Success(val recipes: List<RecipeCardData>) : RecipeUiState
     data class Error(val message : String) : RecipeUiState
+    object Success : RecipeUiState
 }
 
-private fun mapResponseToUiModel ( apiItems: List<RecipeApiResponseItem>): List<RecipeCardData> {
-    return apiItems.map { item ->
+private fun mapDbModelToUiModel(dbItems: List<RecipeWithIngredients>): List<RecipeCardData> {
+    return dbItems.map { dbItem ->
         RecipeCardData(
-            name = item.name,
-            ingredients = item.ingredients,
-            instructions = item.instructions,
-            imageUrl = item.image
+            name = dbItem.recipe.name,
+            instructions = dbItem.recipe.instructions,
+            imageUrl = dbItem.recipe.imgUrl,
+            ingredients = dbItem.ingredients.map { it.name }
         )
     }
 }
+
+//private fun mapResponseToUiModel ( apiItems: List<RecipeApiResponseItem>): List<RecipeCardData> {
+//    return apiItems.map { item ->
+//        RecipeCardData(
+//            name = item.name,
+//            ingredients = item.ingredients,
+//            instructions = item.instructions,
+//            imageUrl = item.image
+//        )
+//    }
+//}
 //Recetario
 @Composable
 fun DefaultRecetario(modifier: Modifier = Modifier) {
@@ -373,8 +390,25 @@ fun RecipeCardItem(data: RecipeCardData, modifier: Modifier = Modifier) {
 fun ParentsInformation(modifier: Modifier = Modifier, navController: NavController) {
     val scrollState = rememberScrollState()
 
-    var uiState by remember { mutableStateOf<RecipeUiState>(RecipeUiState.Idle) }
+    val context = LocalContext.current
+    val dao = remember { AppDatabase.getInstance(context).recipeDao() }
     val scope = rememberCoroutineScope()
+
+    var apiUiState by remember { mutableStateOf<RecipeUiState>(RecipeUiState.Idle) }
+    var filterText by remember { mutableStateOf("") }
+
+     val recipesFlow: Flow<List<RecipeWithIngredients>> = remember(filterText) {
+         if (filterText.isBlank()) {
+             dao.getAllRecipes()
+         } else {
+             val ingredientsToSearch = filterText.split(",")
+                 .map { it.trim().lowercase() }
+                 .filter { it.isNotEmpty() }
+             dao.getRecipesByIngredients(ingredientsToSearch)
+         }
+     }
+
+    val recipesFromDb by recipesFlow.collectAsState(initial = emptyList())
 
     Column(
         modifier = Modifier
@@ -423,7 +457,7 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
             color = Color.White,
             fontFamily = FontFamily(Font(R.font.jua_regular)),
             fontSize = 70.sp,
-            modifier = modifier.padding(vertical = 10.dp)
+            modifier = Modifier.padding(vertical = 10.dp)
         )
 
         RecomendacionesTable()
@@ -433,54 +467,87 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
         Button(
             onClick = {
                 scope.launch {
-                    uiState = RecipeUiState.Loading
-                    uiState = try {
-                        val recipes = ApiClient.instance.getRecipes()
-                        RecipeUiState.Success(mapResponseToUiModel(recipes))
+                    apiUiState = RecipeUiState.Loading
+                    apiUiState = try {
+                        val apiItems = ApiClient.instance.getRecipes()
+                        dao.refreshRecipesFromApi(apiItems)
+                        RecipeUiState.Idle
                     } catch (e: Exception) {
                         RecipeUiState.Error(e.message ?: "Error desconocido")
                     }
                 }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-            enabled = uiState !is RecipeUiState.Loading
+            enabled = apiUiState !is RecipeUiState.Loading
         ) {
             Text(
                 text = "Actualizar recetario (Requiere internet)",
                 color = PinkPeke,
+                fontFamily = FontFamily(Font(R.font.jua_regular)),
                 fontSize = 14.sp
             )
         }
 
         Spacer(modifier = Modifier.height(15.dp))
 
+        OutlinedTextField(
+            value = filterText,
+            onValueChange = { filterText = it },
+            label = { Text("Filtrar por ingrediente (ej: pollo, arroz)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .background(Color.White, RoundedCornerShape(8.dp)),
+            singleLine = true
+        )
+
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.TopCenter
         ) {
-            when (val state = uiState) {
-                is RecipeUiState.Idle -> {
-                    DefaultRecetario()
+
+            if (apiUiState !is RecipeUiState.Loading) {
+
+                val recipesToShow = mapDbModelToUiModel(recipesFromDb)
+
+                if (recipesToShow.isEmpty()) {
+                    if (filterText.isBlank()) {
+
+                        DefaultRecetario()
+                    } else {
+
+                        Text(
+                            text = "No se encontraron recetas con '$filterText'",
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(15.dp)
+                    ) {
+                        recipesToShow.forEach { recipeData ->
+                            RecipeCardItem(data = recipeData)
+                        }
+                    }
                 }
+            }
+
+            when (apiUiState) {
                 is RecipeUiState.Loading -> {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.padding(32.dp))
                 }
                 is RecipeUiState.Error -> {
                     Text(
-                        text = "Error al cargar recetas: ${state.message}",
+                        text = "Error al actualizar: ${(apiUiState as RecipeUiState.Error).message}",
                         color = Color.White,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
-                is RecipeUiState.Success -> {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(15.dp)
-                    ) {
-                        state.recipes.forEach { recipeData ->
-                            RecipeCardItem(data = recipeData)
-                        }
-                    }
+                else -> {
                 }
             }
         }

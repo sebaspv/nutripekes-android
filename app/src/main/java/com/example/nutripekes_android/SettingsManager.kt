@@ -23,7 +23,7 @@ class SettingsManager(context: Context) {
         }
     }
 
-    val birthYearFlow: Flow<Int> = dataStore.data.map { preferences ->
+    val birthYearFlow: Flow<Int?> = dataStore.data.map { preferences ->
         preferences[BIRTH_YEAR_KEY] ?: 0
     }
 }

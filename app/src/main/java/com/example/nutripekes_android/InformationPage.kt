@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -64,6 +65,9 @@ import com.example.nutripekes_android.ui.theme.PinkPeke
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.lazy.items
+
 
 class InformationPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,15 +153,15 @@ sealed interface InfoUiState {
     data class Error(val message: String) : InfoUiState
 }
 
-private fun mapResponseToUiModel(items: List<InfoItem>): List<InfoCard> {
-    return items.map { apiItem ->
-        val contentPairs = apiItem.content.map { list ->
+private fun mapInfoDbToUiModel(dbItems: List<InfoCardEntity>): List<InfoCard> {
+    return dbItems.map { dbItem ->
+        val contentPairs = dbItem.content.map { list ->
             Pair(list[0], list[1])
         }
         InfoCard(
-            titulo = apiItem.title,
+            titulo = dbItem.title,
             content = contentPairs,
-            color = apiItem.color
+            color = dbItem.color
         )
     }
 }
@@ -168,8 +172,13 @@ fun InfoPage(
 ) {
     val scrollState = rememberScrollState()
 
-    var uiState by remember { mutableStateOf<InfoUiState>(InfoUiState.Idle) }
+    val context = LocalContext.current
+    val dao = remember { AppDatabase.getInstance(context).infoDao() }
     val scope = rememberCoroutineScope()
+    var apiUiState by remember { mutableStateOf<InfoUiState>(InfoUiState.Idle) }
+
+    val infoFlow = dao.getAllInfo()
+    val infoFromDb by infoFlow.collectAsState(initial = emptyList())
 
     val Apilist = listOf(
         InfoCard(
@@ -253,17 +262,18 @@ fun InfoPage(
         Button(
             onClick = {
                 scope.launch {
-                    uiState = InfoUiState.Loading
-                    uiState = try {
-                        val response = ApiClient.instance.getInfo()
-                        InfoUiState.Success(mapResponseToUiModel(response.info))
+                    apiUiState = InfoUiState.Loading
+                    apiUiState = try {
+                        val apiItems = ApiClient.instance.getInfo().info
+                        dao.refreshInfoFromApi(apiItems)
+                        InfoUiState.Idle
                     } catch ( e: Exception) {
                         InfoUiState.Error(e.message ?: "Error desconocido")
                     }
                 }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-            enabled = uiState !is InfoUiState.Loading
+            enabled = apiUiState !is InfoUiState.Loading
         ) {
            Text(
                text = "Actualizar información (Requiere conexión a internet)",
@@ -278,39 +288,41 @@ fun InfoPage(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 10.dp),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopCenter
         ) {
-            when (val state = uiState) {
-                is InfoUiState.Idle -> {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Apilist.forEach { cardData ->
-                            InformationColumns(data = cardData)
-                        }
-                    }
+
+            if (apiUiState !is InfoUiState.Loading) {
+
+                val listToShow = if (infoFromDb.isEmpty()) {
+                    Apilist
+                } else {
+                    mapInfoDbToUiModel(infoFromDb)
                 }
 
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    listToShow.forEach { cardData ->
+                        InformationColumns(data = cardData)
+                    }
+                }
+            }
+
+            when (apiUiState) {
                 is InfoUiState.Loading -> {
-                    CircularProgressIndicator(color = Color.White)
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.padding(32.dp))
                 }
                 is InfoUiState.Error -> {
                     Text(
-                        text = "Error al cargar: ${state.message}",
+                        text = "Error al actualizar: ${(apiUiState as InfoUiState.Error).message}",
                         color = Color.White,
                         textAlign = TextAlign.Center
                     )
                 }
-                is InfoUiState.Success -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        state.data.forEach { cardData ->
-                            InformationColumns(data = cardData)
-                        }
-                    }
+                else -> {
+
                 }
             }
         }

@@ -161,7 +161,7 @@ fun StartdayScreen(
     // Calcular edad y porciones
     val settingsManager = remember { SettingsManager(context) }
     val coroutineScope = rememberCoroutineScope()
-    val birthYear by settingsManager.birthYearFlow.collectAsState(initial = 0)
+    val birthYear by settingsManager.birthYearFlow.collectAsState(initial = null)
 
     var showBirthYearDialog by remember { mutableStateOf(false) }
     LaunchedEffect(birthYear) {
@@ -174,6 +174,7 @@ fun StartdayScreen(
         BirthYearEntryDialog(
             onDismiss = {
                 showBirthYearDialog = false
+                coroutineScope.launch { settingsManager.saveBirthYear(0) }
             },
             onSave = { year ->
                 coroutineScope.launch {
@@ -185,7 +186,7 @@ fun StartdayScreen(
     }
 
 
-    val age = PortionLogic.calculateAge(birthYear)
+    val age = PortionLogic.calculateAge(birthYear ?: 0)
     val portions = PortionLogic.getPortionsForAge(age)
 
     var verdurasfrutasCount by remember { mutableStateOf(0) }
