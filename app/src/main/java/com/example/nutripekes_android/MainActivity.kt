@@ -62,6 +62,9 @@ fun Navigation() {
         composable("InformationPageScreen"){
             InfoPage(navController = navController)
         }
+        composable("GuideScreen"){
+            GuideScreen(navController = navController)
+        }
     }
 }
 
@@ -112,11 +115,11 @@ fun NutriPekesScreen(navController: NavController) {
         }
     }
 }
-//
-//@Preview(showBackground = true)
-//@Composable
-//fun NutriPekesScreenPreview() {
-//    NutripekesandroidTheme {
-//        NutriPekesScreen(navController = rememberNavController())
-//    }
-//}
+
+@Preview(showBackground = true)
+@Composable
+fun NutriPekesScreenPreview() {
+    NutripekesandroidTheme {
+        NutriPekesScreen(navController = rememberNavController())
+    }
+}

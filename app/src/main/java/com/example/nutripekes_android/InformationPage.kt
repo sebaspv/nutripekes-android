@@ -49,7 +49,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
-import org.intellij.lang.annotations.JdkConstants
 
 class InformationPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,13 +62,28 @@ class InformationPage : ComponentActivity() {
     }
 }
 
+data class InfoCard(
+    val titulo: String,
+    val content: List<Pair<String, String>>,
+    val color: String
+)
+
+@Composable
+fun mapColor(color: String): Color {
+    return when (color) {
+        "r" -> Color(0xFFDF1E34)
+        "y" -> Color(0xFFF1981F)
+        "g" -> Color(0xFF255A2E)
+        else -> Color.Gray
+    }
+}
+
 @Composable
 fun InformationColumns(
-    colorback: Color,
-    Title: String,
-    Info: String,
+    data: InfoCard,
     modifier: Modifier = Modifier
 ) {
+    val colorback = mapColor(data.color)
     Spacer(modifier = Modifier.height(10.dp))
     Column(
         modifier = modifier
@@ -78,7 +92,7 @@ fun InformationColumns(
     ) {
         // Título
         Text(
-            text = Title,
+            text = data.titulo,
             fontSize = 18.sp,
             color = Color.White,
             fontFamily = FontFamily(Font(R.font.jua_regular)),
@@ -90,23 +104,19 @@ fun InformationColumns(
         // Contenido
         Text(
             text = buildAnnotatedString {
-                Info.split("\n").forEach { line ->
-                    if (line.startsWith("[SUBTITULO]")) {
-                        // Detectar subtítulo
-                        val subtitle = line.removePrefix("[SUBTITULO]").trim()
-                        pushStyle(
-                            SpanStyle(
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                data.content.forEach { (subtitle, text) ->
+                    pushStyle(
+                        SpanStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
-                        append(subtitle)
-                        pop()
-                    } else {
-                        // Texto normal
-                        append(line)
-                    }
+                    )
+                    append(subtitle)
+                    pop()
+
+                    append("\n")
+                    append(text)
                     append("\n")
                 }
             },
@@ -120,6 +130,36 @@ fun InformationColumns(
 @Composable
 fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
     val scrollState = rememberScrollState()
+
+    val Apilist = listOf(
+        InfoCard(
+            titulo = "Componentes de una comida balanceada",
+            content = listOf(
+                Pair("Frutas y Verduras", "Aportan abundantes vitaminas, minerales, fibra y antioxidantes y ayudan al buen funcionamiento y desarrollo del organismo, fortalecen el sistema inmunológico y mejoran la digestión."),
+                Pair("Origen Animal y Leguminosas", "Contienen proteínas, que son esenciales para la formación y reparación de tejidos, y para el crecimiento muscular, también contribuyen al desarrollo físico y al mantenimiento de los músculos, especialmente en los niños."),
+                Pair("Cereales", "Son la principal fuente de energía (carbohidratos), fibra, vitaminas y minerales, aparte de que proveen la energía necesaria para las actividades diarias del cuerpo.")
+            ),
+            color = "r"
+        ),
+        InfoCard(
+            titulo = "Señales de hambre y saciedad",
+            content = listOf(
+                Pair("Señales de hambre", "El niño puede buscar activamente la comida, abrir la boca, o succionar con más entusiasmo del pecho o biberón."),
+                Pair("Señales de saciedad", "El niño puede apartarse, cerrar la boca, no aceptar más comida, o escupir."),
+                Pair("Importancia", "Respetar estas señales permite al niño desarrollar un vínculo saludable con la comida, aprendiendo a reconocer sus propias necesidades.")
+            ),
+            color = "g"
+        ),
+        InfoCard(
+            titulo = "Manejo de la selectividad alimentaria",
+            content = listOf(
+                Pair("El rol de los padres", "Los padres son el principal modelo a seguir; por lo tanto, deben mostrar y practicar hábitos alimentarios saludables."),
+                Pair("Evitar la obligación", "Forzar a un niño a comer puede generar una situación emocional negativa y dañar la relación con la comida."),
+                Pair("Establecer rutinas", "Crear un horario regular de comidas y refrigerios ayuda a establecer hábitos.")
+            ),
+            color = "y"
+        )
+    )
 
     Column(
         modifier = modifier
@@ -169,37 +209,17 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
             fontWeight = FontWeight.Bold
         )
 
-        val info1 = """
-        [SUBTITULO]Frutas y Verduras
-        Aportan abundantes vitaminas, minerales, fibra y antioxidantes y ayudan al buen funcionamiento y desarrollo del organismo, fortalecen el sistema inmunológico y mejoran la digestión.
-        [SUBTITULO]Origen Animal y Leguminosas
-        Contienen proteínas, que son esenciales para la formación y reparación de tejidos, y para el crecimiento muscular, también contribuyen al desarrollo físico y al mantenimiento de los músculos, especialmente en los niños.
-        [SUBTITULO]Cereales
-        Son la principal fuente de energía (carbohidratos), fibra, vitaminas y minerales, aparte de que proveen la energía necesaria para las actividades diarias del cuerpo.
-        """.trimIndent()
+        Apilist.forEach { dataParaTarjeta ->
+            InformationColumns(data = dataParaTarjeta)
+        }
+    }
+}
 
-        InformationColumns(Color(0xFFDF1E34), "Componentes de una comida balanceada", info1)
 
-        val info2 = """
-        [SUBTITULO]Señales de hambre
-        El niño puede buscar activamente la comida, abrir la boca, o succionar con más entusiasmo del pecho o biberón.
-        [SUBTITULO]Señales de saciedad
-        El niño puede apartarse, cerrar la boca, no aceptar más comida, o escupir.
-        [SUBTITULO]Importancia
-        Respetar estas señales permite al niño desarrollar un vínculo saludable con la comida, aprendiendo a reconocer sus propias necesidades.  
-        """.trimIndent()
-
-        InformationColumns(Color(0xFF255A2E), "Señales de hambre y saciedad", info2)
-
-        val info3 = """
-        [SUBTITULO]El rol de los padres
-        Los padres son el principal modelo a seguir; por lo tanto, deben mostrar y practicar hábitos alimentarios saludables.
-        [SUBTITULO]Evitar la obligación
-        Forzar a un niño a comer puede generar una situación emocional negativa y dañar la relación con la comida.
-        [SUBTITULO]Establecer rutinas
-        Crear un horario regular de comidas y refrigerios ayuda a establecer hábitos.
-        """.trimIndent()
-
-        InformationColumns(Color(0xFFF1981F), "Manejo de la selectividad alimentaria", info3)
+@Preview(showBackground = true)
+@Composable
+fun NutriPekesScreenPreviews() {
+    NutripekesandroidTheme {
+        InfoPage(navController = rememberNavController())
     }
 }
