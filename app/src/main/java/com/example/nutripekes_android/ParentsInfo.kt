@@ -1,5 +1,6 @@
 package com.example.nutripekes_android
 
+import android.R.id.message
 import android.os.Bundle
 import android.widget.TableLayout
 import android.widget.TableRow
@@ -25,14 +26,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -40,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +62,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import org.intellij.lang.annotations.JdkConstants
+import coil.compose.AsyncImage
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.IconButton
@@ -225,9 +243,44 @@ fun RecomendacionesTable(
     }
 }
 
+data class RecipeCardData(
+    val name: String,
+    val ingredients: List<String>,
+    val imageUrl: String,
+    val instructions: String
+)
+
+sealed interface RecipeUiState {
+    object Idle : RecipeUiState
+    object Loading : RecipeUiState
+    data class Error(val message : String) : RecipeUiState
+    object Success : RecipeUiState
+}
+
+private fun mapDbModelToUiModel(dbItems: List<RecipeWithIngredients>): List<RecipeCardData> {
+    return dbItems.map { dbItem ->
+        RecipeCardData(
+            name = dbItem.recipe.name,
+            instructions = dbItem.recipe.instructions,
+            imageUrl = dbItem.recipe.imgUrl,
+            ingredients = dbItem.ingredients.map { it.name }
+        )
+    }
+}
+
+//private fun mapResponseToUiModel ( apiItems: List<RecipeApiResponseItem>): List<RecipeCardData> {
+//    return apiItems.map { item ->
+//        RecipeCardData(
+//            name = item.name,
+//            ingredients = item.ingredients,
+//            instructions = item.instructions,
+//            imageUrl = item.image
+//        )
+//    }
+//}
 //Recetario
 @Composable
-fun Recetario(
+fun DefaultRecetario(
     modifier: Modifier = Modifier,
     tts: TextToSpeech?
 ) {
@@ -294,31 +347,19 @@ fun Recetario(
                         .weight(1f)
                         .padding(end = 8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically){
-                        Text(
-                            text = "Instrucciones:",
-                            fontSize = 18.sp,
-                            color = Color.Red,
-                            fontFamily = FontFamily(Font(R.font.jua_regular)),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        Spacer(Modifier.width(8.dp)) // AÑADIDO
-                        // AÑADIDO: Bocina para instrucciones
-                        IconButton(onClick = { tts?.speak(instructionsText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                    Text(text = "Hotcakes")
+                    Text(text = "Instrucciones:", fontSize = 18.sp, color = Color.Red, /*...*/)
+                    Text(text = "1. En un bowl mezcla los ingredientes secos...", /*...*/)
+                    
+                    Spacer(Modifier.width(8.dp))
+                    
+                    IconButton(onClick = { tts?.speak(instructionsText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
                             Image(
                                 painter = painterResource(id = R.drawable.tts),
                                 contentDescription = "Escuchar instrucciones",
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-                    }
-
-                    Text(
-                        text = instructionsText.replace("Instrucciones: ",""),
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        fontFamily = FontFamily(Font(R.font.jua_regular))
-                    )
                 }
 
                 // Columna de imagen + ingredientes
@@ -365,11 +406,91 @@ fun Recetario(
     }
 }
 
+@Composable
+fun RecipeCardItem(data: RecipeCardData, modifier: Modifier = Modifier) {
+    val borderColor = Color.Gray
+
+    Box(modifier = Modifier
+        .clip(RoundedCornerShape(20.dp))
+        .background(Color.Gray)
+        .border(2.dp, borderColor, RoundedCornerShape(20.dp))
+        .padding(16.dp)
+    ) {
+        Column {
+            Text(
+                text = data.name,
+                fontSize = 24.sp,
+                color = Color.Yellow,
+                fontFamily = FontFamily(Font(R.font.jua_regular)),
+                modifier = Modifier
+                    .fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                ) {
+                    Text(
+                        text = "Instrucciones: ",
+                        fontSize = 18.sp,
+                        color = Color.Red,
+                        fontFamily = FontFamily(Font(R.font.jua_regular))
+                    )
+
+                    Text(
+                        text = data.instructions,
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontFamily = FontFamily(Font(R.font.jua_regular))
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    AsyncImage(
+                        model = data.imageUrl,
+                        contentDescription = data.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(150.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+
+                    Text(
+                        text = "Ingredientes:",
+                        fontSize = 18.sp,
+                        color = Color.Red,
+                        fontFamily = FontFamily(Font(R.font.jua_regular)),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    Text(
+                        text = data.ingredients.joinToString(separator = "\n") { "- $it" },
+                        fontSize = 14.sp,
+                        color = Color.White,
+                        fontFamily = FontFamily(Font(R.font.jua_regular))
+                    )
+                }
+            }
+        }
+    }
+}
 //Contenido de la pagina
 @Composable
 fun ParentsInformation(modifier: Modifier = Modifier, navController: NavController) {
     val scrollState = rememberScrollState()
-    val context = LocalContext.current
+
+  
+  val context = LocalContext.current
     val tts = remember(context) {
         var ttsInstance: TextToSpeech? = null
         val listener = TextToSpeech.OnInitListener { status ->
@@ -386,6 +507,26 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
             tts?.shutdown()
         }
     }
+    val context = LocalContext.current
+    val dao = remember { AppDatabase.getInstance(context).recipeDao() }
+    val scope = rememberCoroutineScope()
+
+    var apiUiState by remember { mutableStateOf<RecipeUiState>(RecipeUiState.Idle) }
+    var filterText by remember { mutableStateOf("") }
+
+     val recipesFlow: Flow<List<RecipeWithIngredients>> = remember(filterText) {
+         if (filterText.isBlank()) {
+             dao.getAllRecipes()
+         } else {
+             val ingredientsToSearch = filterText.split(",")
+                 .map { it.trim().lowercase() }
+                 .filter { it.isNotEmpty() }
+             dao.getRecipesByIngredients(ingredientsToSearch)
+         }
+     }
+
+    val recipesFromDb by recipesFlow.collectAsState(initial = emptyList())
+
     Column(
         modifier = Modifier
             .verticalScroll(scrollState)
@@ -433,7 +574,7 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
             color = Color.White,
             fontFamily = FontFamily(Font(R.font.jua_regular)),
             fontSize = 70.sp,
-            modifier = modifier.padding(vertical = 10.dp)
+            modifier = Modifier.padding(vertical = 10.dp)
         )
 
         RecomendacionesTable(
@@ -442,8 +583,104 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        Recetario(
-            tts = tts
+        Button(
+            onClick = {
+                scope.launch {
+                    apiUiState = RecipeUiState.Loading
+                    apiUiState = try {
+                        val apiItems = ApiClient.instance.getRecipes()
+                        dao.refreshRecipesFromApi(apiItems)
+                        RecipeUiState.Idle
+                    } catch (e: Exception) {
+                        RecipeUiState.Error(e.message ?: "Error desconocido")
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+            enabled = apiUiState !is RecipeUiState.Loading
+        ) {
+            Text(
+                text = "Actualizar recetario (Requiere internet)",
+                color = PinkPeke,
+                fontFamily = FontFamily(Font(R.font.jua_regular)),
+                fontSize = 14.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(15.dp))
+
+        OutlinedTextField(
+            value = filterText,
+            onValueChange = { filterText = it },
+            label = { Text("Filtrar por ingrediente (ej: pollo, arroz)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .background(Color.White, RoundedCornerShape(8.dp)),
+            singleLine = true
         )
+
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+
+            if (apiUiState !is RecipeUiState.Loading) {
+
+                val recipesToShow = mapDbModelToUiModel(recipesFromDb)
+
+                if (recipesToShow.isEmpty()) {
+                    if (filterText.isBlank()) {
+
+                        DefaultRecetario(
+                        tts = tts
+                        )
+                    } else {
+
+                        Text(
+                            text = "No se encontraron recetas con '$filterText'",
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(15.dp)
+                    ) {
+                        recipesToShow.forEach { recipeData ->
+                            RecipeCardItem(data = recipeData)
+                        }
+                    }
+                }
+            }
+
+            when (apiUiState) {
+                is RecipeUiState.Loading -> {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.padding(32.dp))
+                }
+                is RecipeUiState.Error -> {
+                    Text(
+                        text = "Error al actualizar: ${(apiUiState as RecipeUiState.Error).message}",
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                else -> {
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(15.dp))
+    }
+}
+
+
+@Preview(showBackground = true)
+@Composable
+fun NutriPekesScreenPreviewparents() {
+    NutripekesandroidTheme {
+        ParentsInformation(navController = rememberNavController())
     }
 }

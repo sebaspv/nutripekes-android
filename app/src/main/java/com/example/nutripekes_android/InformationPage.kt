@@ -22,17 +22,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -45,10 +55,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.lazy.items
+
 import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.IconButton
@@ -78,9 +97,9 @@ data class InfoCard(
 @Composable
 fun mapColor(color: String): Color {
     return when (color) {
-        "r" -> Color(0xFFDF1E34)
-        "y" -> Color(0xFFF1981F)
-        "g" -> Color(0xFF255A2E)
+        "R" -> Color(0xFFDF1E34)
+        "Y" -> Color(0xFFF1981F)
+        "G" -> Color(0xFF255A2E)
         else -> Color.Gray
     }
 }
@@ -158,8 +177,30 @@ fun InformationColumns(
     }
 }
 
+sealed interface InfoUiState {
+    object Idle : InfoUiState
+    object Loading : InfoUiState
+    data class Success(val data: List<InfoCard>) : InfoUiState
+    data class Error(val message: String) : InfoUiState
+}
+
+private fun mapInfoDbToUiModel(dbItems: List<InfoCardEntity>): List<InfoCard> {
+    return dbItems.map { dbItem ->
+        val contentPairs = dbItem.content.map { list ->
+            Pair(list[0], list[1])
+        }
+        InfoCard(
+            titulo = dbItem.title,
+            content = contentPairs,
+            color = dbItem.color
+        )
+    }
+}
 @Composable
-fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
+fun InfoPage(
+    modifier: Modifier = Modifier,
+    navController: NavController,
+) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val tts = remember(context) {
@@ -180,6 +221,14 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
         }
     }
 
+    val context = LocalContext.current
+    val dao = remember { AppDatabase.getInstance(context).infoDao() }
+    val scope = rememberCoroutineScope()
+    var apiUiState by remember { mutableStateOf<InfoUiState>(InfoUiState.Idle) }
+
+    val infoFlow = dao.getAllInfo()
+    val infoFromDb by infoFlow.collectAsState(initial = emptyList())
+
     val Apilist = listOf(
         InfoCard(
             titulo = "Componentes de una comida balanceada",
@@ -188,7 +237,7 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
                 Pair("Origen Animal y Leguminosas", "Contienen proteínas, que son esenciales para la formación y reparación de tejidos, y para el crecimiento muscular, también contribuyen al desarrollo físico y al mantenimiento de los músculos, especialmente en los niños."),
                 Pair("Cereales", "Son la principal fuente de energía (carbohidratos), fibra, vitaminas y minerales, aparte de que proveen la energía necesaria para las actividades diarias del cuerpo.")
             ),
-            color = "r"
+            color = "R"
         ),
         InfoCard(
             titulo = "Señales de hambre y saciedad",
@@ -197,7 +246,7 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
                 Pair("Señales de saciedad", "El niño puede apartarse, cerrar la boca, no aceptar más comida, o escupir."),
                 Pair("Importancia", "Respetar estas señales permite al niño desarrollar un vínculo saludable con la comida, aprendiendo a reconocer sus propias necesidades.")
             ),
-            color = "g"
+            color = "G"
         ),
         InfoCard(
             titulo = "Manejo de la selectividad alimentaria",
@@ -206,7 +255,7 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
                 Pair("Evitar la obligación", "Forzar a un niño a comer puede generar una situación emocional negativa y dañar la relación con la comida."),
                 Pair("Establecer rutinas", "Crear un horario regular de comidas y refrigerios ayuda a establecer hábitos.")
             ),
-            color = "y"
+            color = "Y"
         )
     )
 
@@ -284,11 +333,73 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
             }
         }
 
-        Apilist.forEach { dataParaTarjeta ->
-            InformationColumns(
-                data = dataParaTarjeta,
-                tts = tts
-            )
+        Spacer(modifier = Modifier.height(10.dp))
+        Button(
+            onClick = {
+                scope.launch {
+                    apiUiState = InfoUiState.Loading
+                    apiUiState = try {
+                        val apiItems = ApiClient.instance.getInfo().info
+                        dao.refreshInfoFromApi(apiItems)
+                        InfoUiState.Idle
+                    } catch ( e: Exception) {
+                        InfoUiState.Error(e.message ?: "Error desconocido")
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+            enabled = apiUiState !is InfoUiState.Loading
+        ) {
+           Text(
+               text = "Actualizar información (Requiere conexión a internet)",
+               color = PinkPeke,
+               fontFamily = FontFamily(Font(R.font.jua_regular)),
+               fontSize = 14.sp
+           )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+
+            if (apiUiState !is InfoUiState.Loading) {
+
+                val listToShow = if (infoFromDb.isEmpty()) {
+                    Apilist
+                } else {
+                    mapInfoDbToUiModel(infoFromDb)
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    listToShow.forEach { cardData ->
+                        InformationColumns(data = cardData)
+                    }
+                }
+            }
+
+            when (apiUiState) {
+                is InfoUiState.Loading -> {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.padding(32.dp))
+                }
+                is InfoUiState.Error -> {
+                    Text(
+                        text = "Error al actualizar: ${(apiUiState as InfoUiState.Error).message}",
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                else -> {
+
+                }
+            }
         }
     }
 }
