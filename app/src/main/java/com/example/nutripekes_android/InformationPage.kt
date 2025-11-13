@@ -49,6 +49,13 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
+import android.speech.tts.TextToSpeech
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
 
 class InformationPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,25 +88,49 @@ fun mapColor(color: String): Color {
 @Composable
 fun InformationColumns(
     data: InfoCard,
+    tts: TextToSpeech?,
     modifier: Modifier = Modifier
 ) {
     val colorback = mapColor(data.color)
+    val cardTextToRead = remember(data) {
+        buildString {
+            append(data.titulo).append(". ")
+            data.content.forEach { (subtitle, text) ->
+                append(subtitle).append(". ").append(text).append(". ")
+            }
+        }
+    }
     Spacer(modifier = Modifier.height(10.dp))
     Column(
         modifier = modifier
             .background(colorback, shape = RoundedCornerShape(20.dp))
             .padding(8.dp)
     ) {
-        // Título
-        Text(
-            text = data.titulo,
-            fontSize = 18.sp,
-            color = Color.White,
-            fontFamily = FontFamily(Font(R.font.jua_regular)),
+        Row(
             modifier = Modifier
                 .padding(bottom = 8.dp)
-                .align(Alignment.CenterHorizontally)
-        )
+                .align(Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = data.titulo,
+                fontSize = 18.sp,
+                color = Color.White,
+                fontFamily = FontFamily(Font(R.font.jua_regular)),
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = { tts?.speak(cardTextToRead, TextToSpeech.QUEUE_FLUSH, null, null) },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.tts),
+                    contentDescription = "Escuchar sección",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
 
         // Contenido
         Text(
@@ -130,6 +161,24 @@ fun InformationColumns(
 @Composable
 fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    val tts = remember(context) {
+        var ttsInstance: TextToSpeech? = null
+        val listener = TextToSpeech.OnInitListener { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                ttsInstance?.language = Locale("es", "ES")
+            }
+        }
+        ttsInstance = TextToSpeech(context, listener)
+        ttsInstance
+    }
+
+    DisposableEffect(tts) {
+        onDispose {
+            tts?.stop()
+            tts?.shutdown()
+        }
+    }
 
     val Apilist = listOf(
         InfoCard(
@@ -160,6 +209,15 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
             color = "y"
         )
     )
+
+    val mainTitleText = remember {
+        buildString {
+            append("INFORMACIÓN. ")
+            Apilist.forEach { card ->
+                append(card.titulo).append(". ")
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -202,15 +260,35 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
             )
         }
 
-        Text(
-            text = "INFORMACIÓN",
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 8.dp)
+        ){
+            Text(
+                text = "INFORMACIÓN",
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = { tts?.speak(mainTitleText, TextToSpeech.QUEUE_FLUSH, null, null) },
+                modifier = Modifier.size(30.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.tts),
+                    contentDescription = "Escuchar página",
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+        }
 
         Apilist.forEach { dataParaTarjeta ->
-            InformationColumns(data = dataParaTarjeta)
+            InformationColumns(
+                data = dataParaTarjeta,
+                tts = tts
+            )
         }
     }
 }

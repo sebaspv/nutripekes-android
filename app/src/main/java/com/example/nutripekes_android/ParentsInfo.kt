@@ -48,6 +48,13 @@ import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import org.intellij.lang.annotations.JdkConstants
+import android.speech.tts.TextToSpeech
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
 
 class ParentsInfo : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,7 +70,10 @@ class ParentsInfo : ComponentActivity() {
 
 //Tabla de recomendaciones
 @Composable
-fun RecomendacionesTable(modifier: Modifier = Modifier) {
+fun RecomendacionesTable(
+    modifier: Modifier = Modifier,
+    tts: TextToSpeech?
+) {
     val headerColor = Color(0xFFD9D9D9)
     val borderColor = Color.Gray
     val rowHeight = 56.dp
@@ -80,6 +90,9 @@ fun RecomendacionesTable(modifier: Modifier = Modifier) {
         listOf("10 años", "32 - 36 kg", "138 - 142 cm", "17.2 - 18.0")
     )
 
+    val titleText = "Tabla de recomendaciones"
+    val headersText = headers.joinToString(", ") // "Edad, Peso (kg), Talla (cm), ..."
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
@@ -88,19 +101,32 @@ fun RecomendacionesTable(modifier: Modifier = Modifier) {
             .padding(16.dp)
     ) {
         Column {
-            // Título
-            Text(
-                text = "Tabla de recomendaciones",
-                fontSize = 24.sp,
-                color = Color.White,
-                fontFamily = FontFamily(Font(R.font.jua_regular)),
+            Row (
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp),
-                textAlign = TextAlign.Center
-            )
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                Text(
+                    text = titleText,
+                    fontSize = 24.sp,
+                    color = Color.White,
+                    fontFamily = FontFamily(Font(R.font.jua_regular)),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    tts?.speak("$titleText. $headersText", TextToSpeech.QUEUE_FLUSH, null, null)
+                }) {
+                    Image(
+                        painter = painterResource(id = R.drawable.tts),
+                        contentDescription = "Escuchar título y cabeceras",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
 
-            // Contenedor de la tabla
             Column(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
@@ -137,6 +163,10 @@ fun RecomendacionesTable(modifier: Modifier = Modifier) {
 
                 // Filas de contenido
                 rows.forEachIndexed { rowIndex, fila ->
+                    val rowText = remember(fila, headers) {
+                        headers.zip(fila).joinToString(". ") { (header, data) -> "$header, $data" }
+                    }
+
                     Row(modifier = Modifier.fillMaxWidth()) {
                         fila.forEachIndexed { index, celda ->
                             val weight = when(index) {
@@ -152,11 +182,37 @@ fun RecomendacionesTable(modifier: Modifier = Modifier) {
                                     .height(rowHeight),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = celda,
-                                    fontSize = 12.sp,
-                                    textAlign = TextAlign.Center
-                                )
+                                if (index == 0) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text( // Texto de la celda
+                                            text = celda,
+                                            fontSize = 12.sp,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        // Bocina para la fila
+                                        IconButton(
+                                            onClick = { tts?.speak(rowText, TextToSpeech.QUEUE_FLUSH, null, null) },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Image(
+                                                painter = painterResource(id = R.drawable.bocina),
+                                                contentDescription = "Escuchar fila $rowIndex",
+                                                modifier = Modifier.size(16.dp) // Icono pequeño
+                                            )
+                                        }
+                                    }
+                                }else{
+                                    Text(
+                                        text = celda,
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }
@@ -171,8 +227,30 @@ fun RecomendacionesTable(modifier: Modifier = Modifier) {
 
 //Recetario
 @Composable
-fun Recetario(modifier: Modifier = Modifier) {
+fun Recetario(
+    modifier: Modifier = Modifier,
+    tts: TextToSpeech?
+) {
     val borderColor = Color.Gray
+    val titleText = "Recetario"
+    val instructionsText = "Instrucciones: " +
+            "1. En un bowl mezcla los ingredientes secos: harina integral, harina de avena, polvo para hornear, canela y sal. " +
+            "2. En otro bowl bate el huevo, la leche, el aceite y la vainilla. " +
+            "3. Une las dos mezclas y revuelve hasta que quede una masa suave (no batir demasiado). " +
+            "4. Calienta un sartén antiadherente, engrásalo ligeramente con aceite en spray o unas gotas de aceite con servilleta.Vierte ¼ de taza de mezcla por cada hot cake. " +
+            "5. Cocina a fuego medio hasta que salgan burbujitas, voltea y cocina 1–2 minutos más."
+
+    val ingredientsText = "Ingredientes: " +
+            "1 taza (100 g) de harina integral de trigo. " +
+            "½ taza (50 g) de harina de avena (puedes moler avena en la licuadora). " +
+            "1 cucharadita de polvo para hornear. " +
+            "½ cucharadita de canela en polvo (opcional). " +
+            "1 pizca de sal. " +
+            "1 taza (240 ml) de leche baja en grasa o bebida vegetal sin azúcar. " +
+            "1 huevo. " +
+            "1 cucharada de aceite de oliva. " +
+            "1 cucharadita de extracto de vainilla. " +
+            "1 a 2 cucharadas de miel de abeja o maple natural (opcional, para dar dulzor)."
 
     Box(
         modifier = modifier
@@ -182,16 +260,29 @@ fun Recetario(modifier: Modifier = Modifier) {
             .padding(16.dp)
     ) {
         Column {
-            // Título
-            Text(
-                text = "RECETARIO",
-                fontSize = 24.sp,
-                color = Color.Yellow,
-                fontFamily = FontFamily(Font(R.font.jua_regular)),
+            Row(
                 modifier = Modifier
                     .fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                Text(
+                    text = titleText,
+                    fontSize = 24.sp,
+                    color = Color.Yellow,
+                    fontFamily = FontFamily(Font(R.font.jua_regular)),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { tts?.speak(titleText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                    Image(
+                        painter = painterResource(id = R.drawable.tts),
+                        contentDescription = "Escuchar título",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -203,21 +294,27 @@ fun Recetario(modifier: Modifier = Modifier) {
                         .weight(1f)
                         .padding(end = 8.dp)
                 ) {
+                    Row(verticalAlignment = Alignment.CenterVertically){
+                        Text(
+                            text = "Instrucciones:",
+                            fontSize = 18.sp,
+                            color = Color.Red,
+                            fontFamily = FontFamily(Font(R.font.jua_regular)),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Spacer(Modifier.width(8.dp)) // AÑADIDO
+                        // AÑADIDO: Bocina para instrucciones
+                        IconButton(onClick = { tts?.speak(instructionsText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                            Image(
+                                painter = painterResource(id = R.drawable.tts),
+                                contentDescription = "Escuchar instrucciones",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
                     Text(
-                        text = "Instrucciones:",
-                        fontSize = 18.sp,
-                        color = Color.Red,
-                        fontFamily = FontFamily(Font(R.font.jua_regular)),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = """
-                            1. En un bowl mezcla los ingredientes secos: harina integral, harina de avena, polvo para hornear, canela y sal.
-                            2. En otro bowl bate el huevo, la leche, el aceite y la vainilla.
-                            3. Une las dos mezclas y revuelve hasta que quede una masa suave (no batir demasiado).
-                            4. Calienta un sartén antiadherente, engrásalo ligeramente con aceite en spray o unas gotas de aceite con servilleta.Vierte ¼ de taza de mezcla por cada hot cake.
-                            5. Cocina a fuego medio hasta que salgan burbujitas, voltea y cocina 1–2 minutos más.
-                        """.trimIndent(),
+                        text = instructionsText.replace("Instrucciones: ",""),
                         fontSize = 12.sp,
                         color = Color.White,
                         fontFamily = FontFamily(Font(R.font.jua_regular))
@@ -238,28 +335,26 @@ fun Recetario(modifier: Modifier = Modifier) {
                             .size(150.dp)
                             .clip(RoundedCornerShape(12.dp))
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically){
+                        Text(
+                            text = "Ingredientes:",
+                            fontSize = 18.sp,
+                            color = Color.Red,
+                            fontFamily = FontFamily(Font(R.font.jua_regular)),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        IconButton(onClick = { tts?.speak(ingredientsText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                            Image(
+                                painter = painterResource(id = R.drawable.tts),
+                                contentDescription = "Escuchar ingredientes",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
 
                     Text(
-                        text = "Ingredientes:",
-                        fontSize = 18.sp,
-                        color = Color.Red,
-                        fontFamily = FontFamily(Font(R.font.jua_regular)),
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-
-                    Text(
-                        text = """
-                            1 taza (100 g) de harina integral de trigo
-                            ½ taza (50 g) de harina de avena (puedes moler avena en la licuadora)
-                            1 cucharadita de polvo para hornear
-                            ½ cucharadita de canela en polvo (opcional)
-                            1 pizca de sal
-                            1 taza (240 ml) de leche baja en grasa o bebida vegetal sin azúcar
-                            1 huevo
-                            1 cucharada de aceite de oliva
-                            1 cucharadita de extracto de vainilla
-                            1 a 2 cucharadas de miel de abeja o maple natural (opcional, para dar dulzor)
-                        """.trimIndent(),
+                        text = ingredientsText.replace("Ingredientes: ", ""),
                         fontSize = 14.sp,
                         color = Color.White,
                         fontFamily = FontFamily(Font(R.font.jua_regular))
@@ -274,6 +369,23 @@ fun Recetario(modifier: Modifier = Modifier) {
 @Composable
 fun ParentsInformation(modifier: Modifier = Modifier, navController: NavController) {
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    val tts = remember(context) {
+        var ttsInstance: TextToSpeech? = null
+        val listener = TextToSpeech.OnInitListener { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                ttsInstance?.language = Locale("es", "ES")
+            }
+        }
+        ttsInstance = TextToSpeech(context, listener)
+        ttsInstance
+    }
+    DisposableEffect(tts) {
+        onDispose {
+            tts?.stop()
+            tts?.shutdown()
+        }
+    }
     Column(
         modifier = Modifier
             .verticalScroll(scrollState)
@@ -324,10 +436,14 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
             modifier = modifier.padding(vertical = 10.dp)
         )
 
-        RecomendacionesTable()
+        RecomendacionesTable(
+            tts = tts
+        )
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        Recetario()
+        Recetario(
+            tts = tts
+        )
     }
 }
