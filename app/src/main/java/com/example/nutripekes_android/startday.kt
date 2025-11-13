@@ -44,6 +44,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import java.util.Calendar
+
 class Startday : ComponentActivity(){
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +64,70 @@ class Startday : ComponentActivity(){
 }
 
 @Composable
+fun BirthYearEntryDialog(
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    var textInput by remember { mutableStateOf("") }
+    var isError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "¡Bienvenido!")
+        },
+        text = {
+            Column {
+                Text(text= "Para mejorar tu experiencia, ingresa el año de nacimiento de tu Peke.")
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = textInput,
+                    onValueChange = {
+                        textInput = it
+                        isError = false
+                    },
+                    label = { Text("Año (ej: 2020)") },
+                    singleLine = true,
+                    isError = isError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                if(isError) {
+                    Text(
+                        text = "Por favor, ingresa un año válido.",
+                        color = Color.Red,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val year = textInput.toIntOrNull()
+                    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+
+                    if( year != null && year > 2000 && year <= currentYear) {
+                        onSave(year)
+                    } else{
+                        isError = true
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE55B57))
+            ) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+            ) {
+                Text("Omitir")
+            }
+        }
+    )
+}
+@Composable
 fun StartdayScreen(
     navController : NavController,
     viewModel : StartDayViewModel = viewModel()
@@ -64,24 +136,57 @@ fun StartdayScreen(
             "Para empezar registra las porciones de alimentos que has consumido el día de hoy, " +
             "por ejemplo, si has comido dos porciones de frutas, presiona el icono de frutas dos veces"
     val context = LocalContext.current
+
+    var isTtsInitialized by remember { mutableStateOf(false) }
+
     val tts = remember(context) {
-        lateinit var ttsInstance: TextToSpeech
-        val listener = TextToSpeech.OnInitListener{status ->
-            if (status == TextToSpeech.SUCCESS){
-                ttsInstance.language= Locale("es", "ES")
+        var ttsInstance: TextToSpeech? = null
+        val listener = TextToSpeech.OnInitListener { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                isTtsInitialized = true
+                ttsInstance?.language = Locale("es", "ES")
             }
         }
-        ttsInstance= TextToSpeech(context, listener)
+        ttsInstance = TextToSpeech(context, listener)
         ttsInstance
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(tts) {
         onDispose {
             tts.stop()
             tts.shutdown()
         }
     }
 
+    // Calcular edad y porciones
+    val settingsManager = remember { SettingsManager(context) }
+    val coroutineScope = rememberCoroutineScope()
+    val birthYear by settingsManager.birthYearFlow.collectAsState(initial = 0)
+
+    var showBirthYearDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(birthYear) {
+        if (birthYear == 0) {
+            showBirthYearDialog = true
+        }
+    }
+
+    if (showBirthYearDialog) {
+        BirthYearEntryDialog(
+            onDismiss = {
+                showBirthYearDialog = false
+            },
+            onSave = { year ->
+                coroutineScope.launch {
+                    settingsManager.saveBirthYear(year)
+                }
+                showBirthYearDialog = false
+            }
+        )
+    }
+
+
+    val age = PortionLogic.calculateAge(birthYear)
+    val portions = PortionLogic.getPortionsForAge(age)
 
     var verdurasfrutasCount by remember { mutableStateOf(0) }
     var origenanimalCount by remember { mutableStateOf(0) }
@@ -89,15 +194,18 @@ fun StartdayScreen(
     var cerealesCount by remember { mutableStateOf(0) }
     var aguaCount by remember { mutableStateOf(0) }
 
-    val verdurasfrutasMax = 5
+    //Valores maximos
+    val verdurasfrutasMax = portions.verdurasfrutasMax
+    val origenanimalMax = portions.origenanimalMax
+    val leguminosasMax = portions.leguminosasMax
+    val cerealesMax = portions.cerealesMax
+    val aguaMax = portions.aguaMax
+
+    // Colores
     val verdurasfrutasColor = Color(0xFF1BCC21)
-    val origenanimalMax = 3
     val origenanimalColor = Color(0xFFDE1C0E)
-    val leguminosasMax = 2
     val leguminosasColor = Color(0xFFFA6806)
-    val cerealesMax = 6
-    val cerealessColor = Color(0xFFFFC107)
-    val aguaMax = 6
+    val cerealesColor = Color(0xFFFFC107)
     val aguaColor = Color(0xFF1BA6CC)
 
 
@@ -147,7 +255,9 @@ fun StartdayScreen(
             verticalAlignment = Alignment.CenterVertically
         ){
             IconButton(onClick = {
-                tts.speak(instructionText, TextToSpeech.QUEUE_FLUSH, null, null)
+                if (isTtsInitialized) {
+                    tts.speak(instructionText, TextToSpeech.QUEUE_FLUSH, null, null)
+                }
             }){
                 Image(
                     painter=painterResource(id=R.drawable.bocina),
@@ -242,7 +352,7 @@ fun StartdayScreen(
                     label = "Cereales",
                     currentCount = cerealesCount,
                     maxCount = cerealesMax,
-                    color = cerealessColor,
+                    color = cerealesColor,
                     checkImagesRes = R.drawable.check_yellow,
                     onClick = {
                         if (cerealesCount < cerealesMax) cerealesCount++
