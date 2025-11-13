@@ -221,7 +221,6 @@ fun InfoPage(
         }
     }
 
-    val context = LocalContext.current
     val dao = remember { AppDatabase.getInstance(context).infoDao() }
     val scope = rememberCoroutineScope()
     var apiUiState by remember { mutableStateOf<InfoUiState>(InfoUiState.Idle) }
@@ -380,7 +379,7 @@ fun InfoPage(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     listToShow.forEach { cardData ->
-                        InformationColumns(data = cardData)
+                        InformationColumns(data = cardData, tts = tts)
                     }
                 }
             }

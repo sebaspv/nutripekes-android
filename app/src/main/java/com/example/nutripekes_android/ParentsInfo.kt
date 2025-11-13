@@ -507,7 +507,6 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
             tts?.shutdown()
         }
     }
-    val context = LocalContext.current
     val dao = remember { AppDatabase.getInstance(context).recipeDao() }
     val scope = rememberCoroutineScope()
 
