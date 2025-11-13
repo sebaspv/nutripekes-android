@@ -25,14 +25,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -48,6 +58,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import org.intellij.lang.annotations.JdkConstants
+import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 
 class ParentsInfo : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -169,9 +181,33 @@ fun RecomendacionesTable(modifier: Modifier = Modifier) {
     }
 }
 
+data class RecipeCardData(
+    val name: String,
+    val ingredients: List<String>,
+    val imageUrl: String,
+    val instructions: String
+)
+
+sealed interface RecipeUiState {
+    object Idle : RecipeUiState
+    object Loading : RecipeUiState
+    data class Success(val recipes: List<RecipeCardData>) : RecipeUiState
+    data class Error(val message : String) : RecipeUiState
+}
+
+private fun mapResponseToUiModel ( apiItems: List<RecipeApiResponseItem>): List<RecipeCardData> {
+    return apiItems.map { item ->
+        RecipeCardData(
+            name = item.name,
+            ingredients = item.ingredients,
+            instructions = item.instructions,
+            imageUrl = item.image
+        )
+    }
+}
 //Recetario
 @Composable
-fun Recetario(modifier: Modifier = Modifier) {
+fun DefaultRecetario(modifier: Modifier = Modifier) {
     val borderColor = Color.Gray
 
     Box(
@@ -203,25 +239,9 @@ fun Recetario(modifier: Modifier = Modifier) {
                         .weight(1f)
                         .padding(end = 8.dp)
                 ) {
-                    Text(
-                        text = "Instrucciones:",
-                        fontSize = 18.sp,
-                        color = Color.Red,
-                        fontFamily = FontFamily(Font(R.font.jua_regular)),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = """
-                            1. En un bowl mezcla los ingredientes secos: harina integral, harina de avena, polvo para hornear, canela y sal.
-                            2. En otro bowl bate el huevo, la leche, el aceite y la vainilla.
-                            3. Une las dos mezclas y revuelve hasta que quede una masa suave (no batir demasiado).
-                            4. Calienta un sartén antiadherente, engrásalo ligeramente con aceite en spray o unas gotas de aceite con servilleta.Vierte ¼ de taza de mezcla por cada hot cake.
-                            5. Cocina a fuego medio hasta que salgan burbujitas, voltea y cocina 1–2 minutos más.
-                        """.trimIndent(),
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        fontFamily = FontFamily(Font(R.font.jua_regular))
-                    )
+                    Text(text = "Hotcakes")
+                    Text(text = "Instrucciones:", fontSize = 18.sp, color = Color.Red, /*...*/)
+                    Text(text = "1. En un bowl mezcla los ingredientes secos...", /*...*/)
                 }
 
                 // Columna de imagen + ingredientes
@@ -270,10 +290,92 @@ fun Recetario(modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun RecipeCardItem(data: RecipeCardData, modifier: Modifier = Modifier) {
+    val borderColor = Color.Gray
+
+    Box(modifier = Modifier
+        .clip(RoundedCornerShape(20.dp))
+        .background(Color.Gray)
+        .border(2.dp, borderColor, RoundedCornerShape(20.dp))
+        .padding(16.dp)
+    ) {
+        Column {
+            Text(
+                text = data.name,
+                fontSize = 24.sp,
+                color = Color.Yellow,
+                fontFamily = FontFamily(Font(R.font.jua_regular)),
+                modifier = Modifier
+                    .fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                ) {
+                    Text(
+                        text = "Instrucciones: ",
+                        fontSize = 18.sp,
+                        color = Color.Red,
+                        fontFamily = FontFamily(Font(R.font.jua_regular))
+                    )
+
+                    Text(
+                        text = data.instructions,
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontFamily = FontFamily(Font(R.font.jua_regular))
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    AsyncImage(
+                        model = data.imageUrl,
+                        contentDescription = data.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(150.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+
+                    Text(
+                        text = "Ingredientes:",
+                        fontSize = 18.sp,
+                        color = Color.Red,
+                        fontFamily = FontFamily(Font(R.font.jua_regular)),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    Text(
+                        text = data.ingredients.joinToString(separator = "\n") { "- $it" },
+                        fontSize = 14.sp,
+                        color = Color.White,
+                        fontFamily = FontFamily(Font(R.font.jua_regular))
+                    )
+                }
+            }
+        }
+    }
+}
 //Contenido de la pagina
 @Composable
 fun ParentsInformation(modifier: Modifier = Modifier, navController: NavController) {
     val scrollState = rememberScrollState()
+
+    var uiState by remember { mutableStateOf<RecipeUiState>(RecipeUiState.Idle) }
+    val scope = rememberCoroutineScope()
+
     Column(
         modifier = Modifier
             .verticalScroll(scrollState)
@@ -328,6 +430,69 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        Recetario()
+        Button(
+            onClick = {
+                scope.launch {
+                    uiState = RecipeUiState.Loading
+                    uiState = try {
+                        val recipes = ApiClient.instance.getRecipes()
+                        RecipeUiState.Success(mapResponseToUiModel(recipes))
+                    } catch (e: Exception) {
+                        RecipeUiState.Error(e.message ?: "Error desconocido")
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+            enabled = uiState !is RecipeUiState.Loading
+        ) {
+            Text(
+                text = "Actualizar recetario (Requiere internet)",
+                color = PinkPeke,
+                fontSize = 14.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(15.dp))
+
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            when (val state = uiState) {
+                is RecipeUiState.Idle -> {
+                    DefaultRecetario()
+                }
+                is RecipeUiState.Loading -> {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.padding(32.dp))
+                }
+                is RecipeUiState.Error -> {
+                    Text(
+                        text = "Error al cargar recetas: ${state.message}",
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                is RecipeUiState.Success -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(15.dp)
+                    ) {
+                        state.recipes.forEach { recipeData ->
+                            RecipeCardItem(data = recipeData)
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(15.dp))
+    }
+}
+
+
+@Preview(showBackground = true)
+@Composable
+fun NutriPekesScreenPreviewparents() {
+    NutripekesandroidTheme {
+        ParentsInformation(navController = rememberNavController())
     }
 }

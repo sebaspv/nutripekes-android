@@ -22,13 +22,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,10 +54,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import com.example.nutripekes_android.ui.theme.PinkPeke
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 class InformationPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,9 +86,9 @@ data class InfoCard(
 @Composable
 fun mapColor(color: String): Color {
     return when (color) {
-        "r" -> Color(0xFFDF1E34)
-        "y" -> Color(0xFFF1981F)
-        "g" -> Color(0xFF255A2E)
+        "R" -> Color(0xFFDF1E34)
+        "Y" -> Color(0xFFF1981F)
+        "G" -> Color(0xFF255A2E)
         else -> Color.Gray
     }
 }
@@ -127,9 +142,34 @@ fun InformationColumns(
     }
 }
 
+sealed interface InfoUiState {
+    object Idle : InfoUiState
+    object Loading : InfoUiState
+    data class Success(val data: List<InfoCard>) : InfoUiState
+    data class Error(val message: String) : InfoUiState
+}
+
+private fun mapResponseToUiModel(items: List<InfoItem>): List<InfoCard> {
+    return items.map { apiItem ->
+        val contentPairs = apiItem.content.map { list ->
+            Pair(list[0], list[1])
+        }
+        InfoCard(
+            titulo = apiItem.title,
+            content = contentPairs,
+            color = apiItem.color
+        )
+    }
+}
 @Composable
-fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
+fun InfoPage(
+    modifier: Modifier = Modifier,
+    navController: NavController,
+) {
     val scrollState = rememberScrollState()
+
+    var uiState by remember { mutableStateOf<InfoUiState>(InfoUiState.Idle) }
+    val scope = rememberCoroutineScope()
 
     val Apilist = listOf(
         InfoCard(
@@ -139,7 +179,7 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
                 Pair("Origen Animal y Leguminosas", "Contienen proteínas, que son esenciales para la formación y reparación de tejidos, y para el crecimiento muscular, también contribuyen al desarrollo físico y al mantenimiento de los músculos, especialmente en los niños."),
                 Pair("Cereales", "Son la principal fuente de energía (carbohidratos), fibra, vitaminas y minerales, aparte de que proveen la energía necesaria para las actividades diarias del cuerpo.")
             ),
-            color = "r"
+            color = "R"
         ),
         InfoCard(
             titulo = "Señales de hambre y saciedad",
@@ -148,7 +188,7 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
                 Pair("Señales de saciedad", "El niño puede apartarse, cerrar la boca, no aceptar más comida, o escupir."),
                 Pair("Importancia", "Respetar estas señales permite al niño desarrollar un vínculo saludable con la comida, aprendiendo a reconocer sus propias necesidades.")
             ),
-            color = "g"
+            color = "G"
         ),
         InfoCard(
             titulo = "Manejo de la selectividad alimentaria",
@@ -157,7 +197,7 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
                 Pair("Evitar la obligación", "Forzar a un niño a comer puede generar una situación emocional negativa y dañar la relación con la comida."),
                 Pair("Establecer rutinas", "Crear un horario regular de comidas y refrigerios ayuda a establecer hábitos.")
             ),
-            color = "y"
+            color = "Y"
         )
     )
 
@@ -209,8 +249,70 @@ fun InfoPage(modifier: Modifier = Modifier, navController: NavController) {
             fontWeight = FontWeight.Bold
         )
 
-        Apilist.forEach { dataParaTarjeta ->
-            InformationColumns(data = dataParaTarjeta)
+        Spacer(modifier = Modifier.height(10.dp))
+        Button(
+            onClick = {
+                scope.launch {
+                    uiState = InfoUiState.Loading
+                    uiState = try {
+                        val response = ApiClient.instance.getInfo()
+                        InfoUiState.Success(mapResponseToUiModel(response.info))
+                    } catch ( e: Exception) {
+                        InfoUiState.Error(e.message ?: "Error desconocido")
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+            enabled = uiState !is InfoUiState.Loading
+        ) {
+           Text(
+               text = "Actualizar información (Requiere conexión a internet)",
+               color = PinkPeke,
+               fontFamily = FontFamily(Font(R.font.jua_regular)),
+               fontSize = 14.sp
+           )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            when (val state = uiState) {
+                is InfoUiState.Idle -> {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Apilist.forEach { cardData ->
+                            InformationColumns(data = cardData)
+                        }
+                    }
+                }
+
+                is InfoUiState.Loading -> {
+                    CircularProgressIndicator(color = Color.White)
+                }
+                is InfoUiState.Error -> {
+                    Text(
+                        text = "Error al cargar: ${state.message}",
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                is InfoUiState.Success -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        state.data.forEach { cardData ->
+                            InformationColumns(data = cardData)
+                        }
+                    }
+                }
+            }
         }
     }
 }
