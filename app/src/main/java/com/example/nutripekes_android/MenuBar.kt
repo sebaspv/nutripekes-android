@@ -29,6 +29,13 @@ import com.example.nutripekes_android.R
 import com.example.nutripekes_android.ui.theme.PinkPeke
 import com.example.nutripekes_android.ui.theme.GreenPeke
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
+import android.speech.tts.TextToSpeech
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import java.util.Locale
 
 
 @Composable
@@ -37,6 +44,28 @@ fun SideBar(navController: NavController) {
 
     var PadresExpanded by remember { mutableStateOf(true) }
     var InfoExpanded by remember { mutableStateOf(true) }
+
+    val context = LocalContext.current
+    val tts = remember(context) {
+        var ttsInstance: TextToSpeech? = null
+        val listener = TextToSpeech.OnInitListener { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                ttsInstance?.language = Locale("es", "ES")
+            }
+        }
+        ttsInstance = TextToSpeech(context, listener)
+        ttsInstance
+    }
+
+    DisposableEffect(tts) {
+        onDispose {
+            tts?.stop()
+            tts?.shutdown()
+        }
+    }
+    val padresText = "Padres. Tabla de recomendaciones. Recetario."
+    val infoText = "Información. Componentes de una comida balanceada. Señales de hambre y saciedad. Manejo de la selectividad alimentaria."
+    val ayudaText = "Ayuda. Guía de Uso."
 
     Row(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -61,6 +90,13 @@ fun SideBar(navController: NavController) {
                     fontFamily = juaFontFamily,
                     modifier = Modifier.weight(1f)
                 )
+                IconButton(onClick = { tts?.speak(padresText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                    Image(
+                        painter = painterResource(id = R.drawable.tts),
+                        contentDescription = "Escuchar sección Padres",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 Icon(
                     imageVector =Icons.Default.KeyboardArrowDown,
                     contentDescription = "expandir info padres",
@@ -103,6 +139,13 @@ fun SideBar(navController: NavController) {
                     fontFamily = juaFontFamily,
                     modifier = Modifier.weight(1f)
                 )
+                IconButton(onClick = { tts?.speak(infoText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                    Image(
+                        painter = painterResource(id = R.drawable.tts),
+                        contentDescription = "Escuchar sección Información",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "expandir info",
@@ -146,6 +189,14 @@ fun SideBar(navController: NavController) {
                     fontFamily = juaFontFamily,
                     modifier = Modifier.weight(1f)
                 )
+
+                IconButton(onClick = { tts?.speak(ayudaText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                    Image(
+                        painter = painterResource(id = R.drawable.tts),
+                        contentDescription = "Escuchar sección Ayuda",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
             SideMenuItem(
