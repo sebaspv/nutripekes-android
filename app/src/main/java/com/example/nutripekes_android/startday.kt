@@ -26,6 +26,17 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 
 class Startday : ComponentActivity() {
@@ -35,6 +46,37 @@ class Startday : ComponentActivity() {
             StartdayScreen(navController = rememberNavController())
         }
     }
+}
+
+@Composable
+fun BlockingPopup(
+    onDismiss: () -> Unit
+){
+    AlertDialog(
+        onDismissRequest = {
+
+        },
+        title = {
+            Text(
+                text = "Tiempo de descanso"
+            )
+        },
+        text = {
+            Text(text = "Has pasado 15 minutos dentro de la aplicación. \n + ¡Es hora de un descanso!")
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE55B57))
+            ) {
+                Text("Salir")
+            }
+        },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    )
 }
 
 @Composable
@@ -62,7 +104,41 @@ fun GuideButton(
 }
 
 @Composable
-fun StartdayScreen(navController : NavController) {
+fun StartdayScreen(
+    navController : NavController,
+    viewModel : StartDayViewModel = viewModel()
+) {
+    val showPopup by viewModel.showPopup.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when(event){
+                Lifecycle.Event.ON_RESUME -> {
+                    viewModel.startTimer()
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    viewModel.PauseTimer()
+                }
+                else -> {}
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose{
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    if(showPopup) {
+        BlockingPopup(
+            onDismiss = {
+                viewModel.dismissPopup()
+                navController.popBackStack()
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
