@@ -94,8 +94,8 @@ fun NutriPekesScreen(navController: NavController) {
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .background(YellowPeke) // yellow button
-                .padding(horizontal = 80.dp, vertical = 20.dp)
-                .clickable { navController.navigate("StartDayScreen")},
+                .clickable { navController.navigate("StartDayScreen")}
+                .padding(horizontal = 80.dp, vertical = 20.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

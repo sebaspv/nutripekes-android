@@ -47,10 +47,8 @@ import android.media.MediaPlayer
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import java.util.Calendar
+import androidx.datastore.preferences.core.Preferences
+import kotlinx.coroutines.coroutineScope
 
 class Startday : ComponentActivity(){
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,70 +61,14 @@ class Startday : ComponentActivity(){
     }
 }
 
-@Composable
-fun BirthYearEntryDialog(
-    onDismiss: () -> Unit,
-    onSave: (Int) -> Unit
-) {
-    var textInput by remember { mutableStateOf("") }
-    var isError by remember { mutableStateOf(false) }
+data class FoodEditState(
+    val label: String,
+    val currentCount: Int,
+    val maxCount: Int,
+    val color: Color,
+    val key: Preferences.Key<Int>
+)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(text = "¡Bienvenido!")
-        },
-        text = {
-            Column {
-                Text(text= "Para mejorar tu experiencia, ingresa el año de nacimiento de tu Peke.")
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = textInput,
-                    onValueChange = {
-                        textInput = it
-                        isError = false
-                    },
-                    label = { Text("Año (ej: 2020)") },
-                    singleLine = true,
-                    isError = isError,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-                if(isError) {
-                    Text(
-                        text = "Por favor, ingresa un año válido.",
-                        color = Color.Red,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val year = textInput.toIntOrNull()
-                    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-
-                    if( year != null && year > 2000 && year <= currentYear) {
-                        onSave(year)
-                    } else{
-                        isError = true
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE55B57))
-            ) {
-                Text("Guardar")
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-            ) {
-                Text("Omitir")
-            }
-        }
-    )
-}
 @Composable
 fun StartdayScreen(
     navController : NavController,
@@ -138,6 +80,8 @@ fun StartdayScreen(
     val context = LocalContext.current
 
     var isTtsInitialized by remember { mutableStateOf(false) }
+
+    var isSpeakingInstructions by remember { mutableStateOf(false) }
 
     val tts = remember(context) {
         var ttsInstance: TextToSpeech? = null
@@ -170,8 +114,13 @@ fun StartdayScreen(
 
     var showBirthYearDialog by remember { mutableStateOf(false) }
     LaunchedEffect(birthYear) {
-        if (birthYear == 0) {
-            showBirthYearDialog = true
+        if (birthYear != null) {
+            if (birthYear == 0) {
+                showBirthYearDialog = true
+            }
+            else {
+                showBirthYearDialog = false
+            }
         }
     }
 
@@ -179,7 +128,6 @@ fun StartdayScreen(
         BirthYearEntryDialog(
             onDismiss = {
                 showBirthYearDialog = false
-                coroutineScope.launch { settingsManager.saveBirthYear(0) }
             },
             onSave = { year ->
                 coroutineScope.launch {
@@ -194,11 +142,13 @@ fun StartdayScreen(
     val age = PortionLogic.calculateAge(birthYear ?: 0)
     val portions = PortionLogic.getPortionsForAge(age)
 
-    var verdurasfrutasCount by remember { mutableStateOf(0) }
-    var origenanimalCount by remember { mutableStateOf(0) }
-    var leguminosasCount by remember { mutableStateOf(0) }
-    var cerealesCount by remember { mutableStateOf(0) }
-    var aguaCount by remember { mutableStateOf(0) }
+    val dailyProgress by settingsManager.dailyProgressFlow.collectAsState(initial = DailyProgress())
+
+    val verdurasfrutasCount = dailyProgress.verduras
+    val origenanimalCount = dailyProgress.animal
+    val leguminosasCount = dailyProgress.leguminosas
+    val cerealesCount = dailyProgress.cereales
+    val aguaCount = dailyProgress.agua
 
     //Valores maximos
     val verdurasfrutasMax = portions.verdurasfrutasMax
@@ -213,6 +163,41 @@ fun StartdayScreen(
     val leguminosasColor = Color(0xFFFA6806)
     val cerealesColor = Color(0xFFFFC107)
     val aguaColor = Color(0xFF1BA6CC)
+
+    var activeFoodEdit by remember { mutableStateOf<FoodEditState?>(null) }
+
+    val tutorialShown by settingsManager.tutorialShownFlow.collectAsState(initial = true)
+    var currentTutorialStep by remember { mutableStateOf(1) }
+
+    if (activeFoodEdit != null) {
+        val food = activeFoodEdit!!
+
+        FoodEditDialog(
+            label = food.label,
+            currentCount = food.currentCount,
+            maxCount = food.maxCount,
+            color = food.color,
+            onDismiss = { activeFoodEdit = null },
+            onAdd = {
+                if (food.currentCount < food.maxCount) {
+                    val newCount = food.currentCount + 1
+                    coroutineScope.launch {
+                        settingsManager.savePortion(food.key, newCount)
+                        activeFoodEdit = food.copy(currentCount = newCount)
+                    }
+                }
+            },
+            onRemove = {
+                if (food.currentCount > 0) {
+                    val newCount = food.currentCount - 1
+                    coroutineScope.launch {
+                        settingsManager.savePortion(food.key, newCount)
+                        activeFoodEdit = food.copy(currentCount = newCount)
+                    }
+                }
+            }
+        )
+    }
 
     val totalCurrent = verdurasfrutasCount+origenanimalCount+leguminosasCount+cerealesCount+aguaCount
     val totalMax = verdurasfrutasMax+origenanimalMax+leguminosasMax+cerealesMax+aguaMax
@@ -278,20 +263,25 @@ fun StartdayScreen(
             .background(Color(0xFFE55B57))
             .padding(0.dp, 10.dp)
     ) {
-
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top=18.dp, end= 18.dp),
+                .padding(top = 18.dp, end = 18.dp),
             verticalAlignment = Alignment.CenterVertically
-        ){
+        ) {
             IconButton(onClick = {
                 if (isTtsInitialized) {
-                    tts.speak(instructionText, TextToSpeech.QUEUE_FLUSH, null, null)
+                    if (tts.isSpeaking && isSpeakingInstructions) {
+                        tts.stop()
+                        isSpeakingInstructions = false
+                    } else {
+                        tts.speak(instructionText, TextToSpeech.QUEUE_FLUSH, null, null)
+                        isSpeakingInstructions = true
+                    }
                 }
-            }){
+            }) {
                 Image(
-                    painter=painterResource(id=R.drawable.tts),
+                    painter = painterResource(id = R.drawable.tts),
                     contentDescription = "Escuchar instrucciones",
                     modifier = Modifier.size(30.dp)
                 )
@@ -300,9 +290,9 @@ fun StartdayScreen(
             Spacer(modifier = Modifier.width(8.dp))
 
             Image(
-                painter=painterResource(id=R.drawable.logo),
-                contentDescription="Logo",
-                modifier=Modifier.size(80.dp)
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "Logo",
+                modifier = Modifier.size(80.dp)
             )
         }
 
@@ -319,7 +309,7 @@ fun StartdayScreen(
                 contentDescription = "Menu",
                 modifier = Modifier
                     .size(20.dp)
-                    .clickable { navController.navigate("MenuBarScreen")},
+                    .clickable { navController.navigate("MenuBarScreen") },
             )
 
             GuideButton(
@@ -356,7 +346,13 @@ fun StartdayScreen(
                     color = verdurasfrutasColor,
                     checkImagesRes = R.drawable.check,
                     onClick = {
-                        if (verdurasfrutasCount < verdurasfrutasMax) verdurasfrutasCount++
+                        activeFoodEdit = FoodEditState(
+                            label = "Verduras y Frutas",
+                            currentCount = verdurasfrutasCount,
+                            maxCount = verdurasfrutasMax,
+                            color = verdurasfrutasColor,
+                            key = SettingsManager.VERDURAS_KEY
+                        )
                     }
                 )
                 FoodCounter(
@@ -366,7 +362,13 @@ fun StartdayScreen(
                     color = origenanimalColor,
                     checkImagesRes = R.drawable.check_red,
                     onClick = {
-                        if (origenanimalCount < origenanimalMax) origenanimalCount++
+                        activeFoodEdit = FoodEditState(
+                            label = "Alimentos de Origen Animal",
+                            currentCount = origenanimalCount,
+                            maxCount = origenanimalMax,
+                            color = origenanimalColor,
+                            key = SettingsManager.ANIMAL_KEY
+                        )
                     }
                 )
                 FoodCounter(
@@ -376,7 +378,13 @@ fun StartdayScreen(
                     color = leguminosasColor,
                     checkImagesRes = R.drawable.check_orange,
                     onClick = {
-                        if (leguminosasCount < leguminosasMax) leguminosasCount++
+                        activeFoodEdit = FoodEditState(
+                            label = "Leguminosas",
+                            currentCount = leguminosasCount,
+                            maxCount = leguminosasCount,
+                            color = leguminosasColor,
+                            key = SettingsManager.LEGUMINOSAS_KEY
+                        )
                     }
                 )
                 FoodCounter(
@@ -386,7 +394,13 @@ fun StartdayScreen(
                     color = cerealesColor,
                     checkImagesRes = R.drawable.check_yellow,
                     onClick = {
-                        if (cerealesCount < cerealesMax) cerealesCount++
+                        activeFoodEdit = FoodEditState(
+                            label = "Cereales",
+                            currentCount = cerealesCount,
+                            maxCount = cerealesMax,
+                            color = cerealesColor,
+                            key = SettingsManager.CEREALES_KEY
+                        )
                     }
                 )
             }
@@ -402,10 +416,29 @@ fun StartdayScreen(
                     color = aguaColor,
                     checkImagesRes = R.drawable.check_blue,
                     onClick = {
-                        if (aguaCount < aguaMax) aguaCount++
+                        activeFoodEdit = FoodEditState(
+                            label = "Agua",
+                            currentCount = aguaCount,
+                            maxCount = aguaMax,
+                            color = aguaColor,
+                            key = SettingsManager.AGUA_KEY
+                        )
                     }
                 )
             }
+        }
+
+        if (!tutorialShown) {
+            TutorialOverlay(
+                currentStep = currentTutorialStep,
+                onNextStep = { currentTutorialStep++ },
+                onSkip = {
+                    coroutineScope.launch {
+                        settingsManager.setTutorialShown(true)
+                    }
+                    currentTutorialStep = 1
+                }
+            )
         }
     }
 }
@@ -486,7 +519,7 @@ fun FoodCounter(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .clickable(onClick=onClick)
+            .clickable(onClick = onClick)
             .padding(horizontal = 4.dp)
     ){
         Box(

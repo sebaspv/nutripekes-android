@@ -34,18 +34,38 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import com.example.nutripekes_android.BirthYearEntryDialog
+import com.example.nutripekes_android.SettingsManager
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 
 @Composable
 fun SideBar(navController: NavController) {
     val juaFontFamily = FontFamily(Font(R.font.jua_regular))
+    val context = LocalContext.current
 
     var PadresExpanded by remember { mutableStateOf(true) }
     var InfoExpanded by remember { mutableStateOf(true) }
 
-    val context = LocalContext.current
+    var showAgeDialog by remember { mutableStateOf(false)}
+    val settingsManager = remember { SettingsManager(context) }
+    val coroutineScope = rememberCoroutineScope()
+
+    if (showAgeDialog) {
+        BirthYearEntryDialog(
+            onDismiss = { showAgeDialog = false },
+            onSave = { year ->
+                coroutineScope.launch {
+                    settingsManager.saveBirthYear(year)
+                }
+                showAgeDialog = false
+            }
+        )
+    }
+
     val tts = remember(context) {
         var ttsInstance: TextToSpeech? = null
         val listener = TextToSpeech.OnInitListener { status ->
@@ -57,12 +77,18 @@ fun SideBar(navController: NavController) {
         ttsInstance
     }
 
-    DisposableEffect(tts) {
-        onDispose {
-            tts?.stop()
-            tts?.shutdown()
+    var currentSpokenText by remember { mutableStateOf("") }
+
+    val toggleAudio = { textToSpeak: String ->
+        if (tts?.isSpeaking == true && currentSpokenText == textToSpeak) {
+            tts.stop()
+            currentSpokenText = ""
+        } else {
+            tts?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, null)
+            currentSpokenText = textToSpeak
         }
     }
+
     val padresText = "Padres. Tabla de recomendaciones. Recetario."
     val infoText = "Información. Componentes de una comida balanceada. Señales de hambre y saciedad. Manejo de la selectividad alimentaria."
     val ayudaText = "Ayuda. Guía de Uso."
@@ -90,7 +116,7 @@ fun SideBar(navController: NavController) {
                     fontFamily = juaFontFamily,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = { tts?.speak(padresText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                IconButton(onClick = { toggleAudio(padresText) }) {
                     Image(
                         painter = painterResource(id = R.drawable.tts),
                         contentDescription = "Escuchar sección Padres",
@@ -120,6 +146,11 @@ fun SideBar(navController: NavController) {
                         fontFamily = juaFontFamily,
                         onClick = { navController.navigate("ParentsInfoScreen") }
                     )
+                    SideMenuItem(
+                            text = "Cambiar Edad",
+                    fontFamily = juaFontFamily,
+                    onClick = { showAgeDialog = true }
+                    )
                 }
             }
 
@@ -139,7 +170,7 @@ fun SideBar(navController: NavController) {
                     fontFamily = juaFontFamily,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = { tts?.speak(infoText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                IconButton(onClick = { toggleAudio(infoText) }) {
                     Image(
                         painter = painterResource(id = R.drawable.tts),
                         contentDescription = "Escuchar sección Información",
@@ -190,7 +221,7 @@ fun SideBar(navController: NavController) {
                     modifier = Modifier.weight(1f)
                 )
 
-                IconButton(onClick = { tts?.speak(ayudaText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                IconButton(onClick = { toggleAudio(infoText) }) {
                     Image(
                         painter = painterResource(id = R.drawable.tts),
                         contentDescription = "Escuchar sección Ayuda",

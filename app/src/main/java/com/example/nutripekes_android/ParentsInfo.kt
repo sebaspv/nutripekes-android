@@ -90,7 +90,7 @@ class ParentsInfo : ComponentActivity() {
 @Composable
 fun RecomendacionesTable(
     modifier: Modifier = Modifier,
-    tts: TextToSpeech?
+    onAudioClick: (String) -> Unit,
 ) {
     val headerColor = Color(0xFFD9D9D9)
     val borderColor = Color.Gray
@@ -135,7 +135,7 @@ fun RecomendacionesTable(
                 )
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = {
-                    tts?.speak("$titleText. $headersText", TextToSpeech.QUEUE_FLUSH, null, null)
+                    onAudioClick("$titleText. $headersText")
                 }) {
                     Image(
                         painter = painterResource(id = R.drawable.tts),
@@ -214,7 +214,7 @@ fun RecomendacionesTable(
                                         )
                                         // Bocina para la fila
                                         IconButton(
-                                            onClick = { tts?.speak(rowText, TextToSpeech.QUEUE_FLUSH, null, null) },
+                                            onClick = { onAudioClick(rowText) },
                                             modifier = Modifier.size(24.dp)
                                         ) {
                                             Image(
@@ -267,22 +267,11 @@ private fun mapDbModelToUiModel(dbItems: List<RecipeWithIngredients>): List<Reci
         )
     }
 }
-
-//private fun mapResponseToUiModel ( apiItems: List<RecipeApiResponseItem>): List<RecipeCardData> {
-//    return apiItems.map { item ->
-//        RecipeCardData(
-//            name = item.name,
-//            ingredients = item.ingredients,
-//            instructions = item.instructions,
-//            imageUrl = item.image
-//        )
-//    }
-//}
 //Recetario
 @Composable
 fun DefaultRecetario(
     modifier: Modifier = Modifier,
-    tts: TextToSpeech?
+    onAudioClick: (String) -> Unit
 ) {
     val borderColor = Color.Gray
     val titleText = "Recetario"
@@ -327,7 +316,7 @@ fun DefaultRecetario(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.width(8.dp))
-                IconButton(onClick = { tts?.speak(titleText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                IconButton(onClick = { onAudioClick(titleText) }) {
                     Image(
                         painter = painterResource(id = R.drawable.tts),
                         contentDescription = "Escuchar título",
@@ -353,7 +342,7 @@ fun DefaultRecetario(
                     
                     Spacer(Modifier.width(8.dp))
                     
-                    IconButton(onClick = { tts?.speak(instructionsText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                    IconButton(onClick = { onAudioClick(instructionsText) }) {
                             Image(
                                 painter = painterResource(id = R.drawable.tts),
                                 contentDescription = "Escuchar instrucciones",
@@ -385,7 +374,7 @@ fun DefaultRecetario(
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        IconButton(onClick = { tts?.speak(ingredientsText, TextToSpeech.QUEUE_FLUSH, null, null) }) {
+                        IconButton(onClick = { onAudioClick(ingredientsText) }) {
                             Image(
                                 painter = painterResource(id = R.drawable.tts),
                                 contentDescription = "Escuchar ingredientes",
@@ -489,8 +478,7 @@ fun RecipeCardItem(data: RecipeCardData, modifier: Modifier = Modifier) {
 fun ParentsInformation(modifier: Modifier = Modifier, navController: NavController) {
     val scrollState = rememberScrollState()
 
-  
-  val context = LocalContext.current
+    val context = LocalContext.current
     val tts = remember(context) {
         var ttsInstance: TextToSpeech? = null
         val listener = TextToSpeech.OnInitListener { status ->
@@ -501,12 +489,19 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
         ttsInstance = TextToSpeech(context, listener)
         ttsInstance
     }
-    DisposableEffect(tts) {
-        onDispose {
+
+    var currentSpokenText by remember { mutableStateOf("") }
+
+    val toggleAudio = {textToSpeak: String ->
+        if (tts?.isSpeaking == true && currentSpokenText == textToSpeak) {
             tts?.stop()
-            tts?.shutdown()
+            currentSpokenText = ""
+        } else {
+            tts?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, null)
+            currentSpokenText = textToSpeak
         }
     }
+
     val dao = remember { AppDatabase.getInstance(context).recipeDao() }
     val scope = rememberCoroutineScope()
 
@@ -577,7 +572,7 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
         )
 
         RecomendacionesTable(
-            tts = tts
+            onAudioClick = { text -> toggleAudio(text) }
         )
 
         Spacer(modifier = Modifier.height(15.dp))
@@ -632,7 +627,7 @@ fun ParentsInformation(modifier: Modifier = Modifier, navController: NavControll
                     if (filterText.isBlank()) {
 
                         DefaultRecetario(
-                        tts = tts
+                            onAudioClick = { text -> toggleAudio(text) }
                         )
                     } else {
 

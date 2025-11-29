@@ -35,10 +35,17 @@ import androidx.navigation.compose.rememberNavController
 import com.example.nutripekes_android.ui.theme.NutripekesandroidTheme
 import android.speech.tts.TextToSpeech
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 
@@ -57,9 +64,13 @@ class GuideScreen : ComponentActivity() {
 fun GuideSection(
     title: String,
     content: String,
-    tts: TextToSpeech?,
+    onAudioClick: (String) -> Unit,
     modifier: Modifier = Modifier
+
 ){
+
+    val fullText = "$title. $content"
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -80,7 +91,7 @@ fun GuideSection(
             Spacer(modifier = Modifier.width(8.dp))
 
             IconButton(onClick = {
-                tts?.speak("$title. $content", TextToSpeech.QUEUE_FLUSH, null, null)
+                onAudioClick(fullText)
             }) {
                 Image(
                     painter = painterResource(id=R.drawable.tts),
@@ -105,6 +116,10 @@ fun GuideSection(
 fun GuideScreen(navController : NavController) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+
+    val settingsManager = remember { SettingsManager(context) }
+    val coroutineScope = rememberCoroutineScope()
+
     val tts = remember (context){
         var ttsInstance: TextToSpeech? = null
         val listener = TextToSpeech.OnInitListener{status ->
@@ -116,10 +131,15 @@ fun GuideScreen(navController : NavController) {
         ttsInstance
     }
 
-    DisposableEffect(tts) {
-        onDispose {
-            tts?.stop()
-            tts?.shutdown()
+    var currentSpokenText by remember { mutableStateOf("") }
+
+    val toggleAudio = { textToSpeak: String ->
+        if (tts?.isSpeaking == true && currentSpokenText == textToSpeak) {
+            tts.stop()
+            currentSpokenText = ""
+        } else {
+            tts?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, null)
+            currentSpokenText = textToSpeak
         }
     }
 
@@ -171,7 +191,7 @@ fun GuideScreen(navController : NavController) {
             Spacer(modifier = Modifier.width(8.dp))
 
             IconButton(onClick = {
-                tts?.speak(mainTitleText, TextToSpeech.QUEUE_FLUSH, null, null)
+                toggleAudio(mainTitleText)
             }) {
                 Image(
                     painter = painterResource(id = R.drawable.tts), // O R.drawable.bocina si lo tienes
@@ -180,33 +200,54 @@ fun GuideScreen(navController : NavController) {
                 )
             }
         }
+
+        Button(
+            onClick = {
+                coroutineScope.launch {
+                    settingsManager.setTutorialShown(false)
+                    navController.navigate("StartDayScreen") {
+                        popUpTo("StartDayScreen") { inclusive = true }
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            Text("Ver tutorial", color = Color(0xFFE55B57), fontWeight = FontWeight.Bold)
+        }
         
         GuideSection(
             title = "1. Pantalla de inicio",
             content = "Esta es tu pantalla principal. Aquí puedes ver el progreso diario de tu peque.",
-            tts = tts
+            onAudioClick = { text -> toggleAudio(text) }
         )
 
         GuideSection(
             title = "2. Los contadores",
             content = "En la pantalla principal, verás varios iconos de comida (verduras, cereales, etc.) y un vaso de agua.\n\n" +
                     "¡Toca cada icono para registrar una porción de alimento ingerido, y observa como la manzana cambia a lo largo de cada comida!",
-            tts = tts
+            onAudioClick = { text -> toggleAudio(text) }
         )
 
         GuideSection(
             title = "Menú y Navegación",
             content = "Usa el icono de menú (☰) para navegar a las diferentes secciones de la app.\n\n" +
                     "Usa la flecha 'regresar' en la esquina superior izquierda para volver a la pantalla anterior en cualquier momento.",
-            tts = tts
+            onAudioClick = { text -> toggleAudio(text) }
         )
 
         GuideSection(
             title = "Ver Información Nutricional",
             content = "En la barra de menú (tocando el icono ☰ en la pantalla principal), encontrarás la sección 'Información'.\n\n" +
                     "Allí podrás leer sobre los componentes de una comida balanceada, señales de hambre, y manejo de la selectividad alimentaria.",
-            tts = tts
+            onAudioClick = { text -> toggleAudio(text) }
         )
+
+        Spacer(modifier = Modifier.height(100.dp))
+
+
 
     }
 }

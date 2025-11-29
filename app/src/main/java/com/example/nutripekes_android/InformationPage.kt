@@ -107,7 +107,7 @@ fun mapColor(color: String): Color {
 @Composable
 fun InformationColumns(
     data: InfoCard,
-    tts: TextToSpeech?,
+    onAudioClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorback = mapColor(data.color)
@@ -139,7 +139,7 @@ fun InformationColumns(
             )
             Spacer(Modifier.width(8.dp))
             IconButton(
-                onClick = { tts?.speak(cardTextToRead, TextToSpeech.QUEUE_FLUSH, null, null) },
+                onClick = { onAudioClick(cardTextToRead) },
                 modifier = Modifier.size(24.dp)
             ) {
                 Image(
@@ -214,10 +214,15 @@ fun InfoPage(
         ttsInstance
     }
 
-    DisposableEffect(tts) {
-        onDispose {
+    var currentSpokenText by remember { mutableStateOf("") }
+
+    val toggleAudio = { textToSpeak: String ->
+        if (tts?.isSpeaking == true && currentSpokenText == textToSpeak) {
             tts?.stop()
-            tts?.shutdown()
+            currentSpokenText = ""
+        } else {
+            tts?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, null)
+            currentSpokenText = textToSpeak
         }
     }
 
@@ -321,7 +326,7 @@ fun InfoPage(
 
             Spacer(Modifier.width(8.dp))
             IconButton(
-                onClick = { tts?.speak(mainTitleText, TextToSpeech.QUEUE_FLUSH, null, null) },
+                onClick = { toggleAudio(mainTitleText) },
                 modifier = Modifier.size(30.dp)
             ) {
                 Image(
@@ -379,7 +384,9 @@ fun InfoPage(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     listToShow.forEach { cardData ->
-                        InformationColumns(data = cardData, tts = tts)
+                        InformationColumns(data = cardData,
+                            onAudioClick = {text -> toggleAudio(text) }
+                        )
                     }
                 }
             }
