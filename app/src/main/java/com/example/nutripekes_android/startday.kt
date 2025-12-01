@@ -381,7 +381,7 @@ fun StartdayScreen(
                         activeFoodEdit = FoodEditState(
                             label = "Leguminosas",
                             currentCount = leguminosasCount,
-                            maxCount = leguminosasCount,
+                            maxCount = leguminosasMax,
                             color = leguminosasColor,
                             key = SettingsManager.LEGUMINOSAS_KEY
                         )
