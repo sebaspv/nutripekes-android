@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class StartDayViewModel : ViewModel() {
-    private val TIME_LIMIT = 20
+    private val TIME_LIMIT = 50
 
 
     private val _elapsedTime = MutableStateFlow(0)

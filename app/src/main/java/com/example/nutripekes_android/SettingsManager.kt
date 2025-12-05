@@ -59,8 +59,18 @@ class SettingsManager(context: Context) {
     suspend fun savePortion(key: androidx.datastore.preferences.core.Preferences.Key<Int>, count: Int){
         val today = getTodayStart()
         dataStore.edit { settings ->
+            val saved_date = settings[LAST_DATE_KEY] ?: 0L
+            if(saved_date != today){
+                settings[VERDURAS_KEY] = 0
+                settings[ANIMAL_KEY] = 0
+                settings[LEGUMINOSAS_KEY] = 0
+                settings[CEREALES_KEY] = 0
+                settings[AGUA_KEY] = 0
+
+                settings[LAST_DATE_KEY] = today
+            }
+
             settings[key] = count
-            settings[LAST_DATE_KEY] = today
 
         }
     }
